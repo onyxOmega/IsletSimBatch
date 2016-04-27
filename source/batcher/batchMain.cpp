@@ -1,6 +1,4 @@
-/*
 
-*/
 
 #include <iostream>
 #include <stdio.h>
@@ -23,17 +21,12 @@ struct glucoseStep
 
 struct simData
 {
-	// Metadata
-	// Sim data
-	//	vector<glucoseStep> glucStep;
-
 	vector<string> variableString;
-	string varName;
-	string varValue;
 };
 
 struct batchData
 {
+	bool valid;
 	int index;
 	int repetitions;
 	vector<simData> sim;
@@ -51,65 +44,92 @@ struct allowedVariables
 	string name, unit, min, max, def;
 };
 
-int userInterface();
-int queueBatch();
+bool userInterface();
+batchData queueBatch();																					// queueBatch() function returns custom data type "batchData"
 int getBatchIndex();
 int setParams();
+
+// Set global vector of batchData structures
+vector<batchData> batch;
 
 int main( int argc , char* argv[] )
 {
 	int simCount = 0;
 	
 	rootShellStrings root;
-	vector<batchData> batches;
 	
 	int startingBatchIndex = getBatchIndex();
 
 //------------------------------------------------------------------------------------------------------------------------------------------//
 	
-	userInterface();														// Call user interface function
-
-//------------------------------------------------------------------------------------------------------------------------------------------//
-	// Set temporary data for testing. Will be deleted on completion
-	simData tempSim;
+	bool confirmBatches = userInterface();														// Call user interface function
 	
-	batchData tempBatch;
-	tempBatch.sim.push_back(tempSim);						// add temporary sim to a batch
-	tempBatch.index = startingBatchIndex;					// add index to temporary batch
-	tempBatch.repetitions = 3;
-	batches.push_back(tempBatch); 								// add temporary batch to batch list. All batches will go in this stack
+	if (!confirmBatches)
+	{
+		return 0; 																									// Cancels program and closes
+	}
+	
+//------------------------------------------------------------------------------------------------------------------------------------------//
+	// Set temporary data for testing. Will be deleted on completion or while testing manual entries.
+	
+	for (int bI = 0; bI < 3; bI++)
+	{
+		batchData tempBatch;
+		stringstream tempSS;
+
+		for (int sI = 0; sI < 2; sI++)
+		{
+			simData tempSim;
+			tempSS.str("");
+			tempSS << "abc" << sI << "=" << bI*sI;
+			tempSim.variableString.push_back(tempSS.str());							// add test variable string to the test sim.
+			tempSS.str("");
+			tempSS << "def" << sI << "=" << bI + sI;
+			tempSim.variableString.push_back(tempSS.str());							// add test variable string to the test sim.
+			tempBatch.sim.push_back(tempSim);													// add temporary sim to a batch
+		}
+
+		tempBatch.index = startingBatchIndex + bI;											// add index to temporary batch
+		tempBatch.repetitions = 3 - bI;
+		batch.push_back(tempBatch); 																// add temporary batch to batch list. All batches will go in this stack
+	}	
+	
 	
 //------------------------------------------------------------------------------------------------------------------------------------------//	
-	// Create output files for each batch
-	for(int i = 0; i < batches.size(); i++)										// Iterate through batches
+	// Create root_shell.sh file for all batches(which makes relevant directories then runs sbatch files) 
+	// and create slurm batch files for each individual sim run
+	for(int i = 0; i < batch.size(); i++)										// Iterate through batches
 	{
 		stringstream mkdirSS;
-		mkdirSS << "mkdir ~/IsletSimBatch/data/SimBatch" << setfill('0') << setw(4) << batches[i].index;
+		mkdirSS << "mkdir ~/IsletSimBatch/data/SimBatch" << setfill('0') << setw(4) << batch[i].index;
 		root.mkdir.push_back(mkdirSS.str());
 		
-		for(int j = 1; j <= batches[i].sim.size(); j++)						// Iterate through sims in a batch
+		for(int j = 0; j < batch[i].sim.size(); j++)						// Iterate through sims in a batch
 		{	
+			// Create a parent directory for a given simulation set.
 			mkdirSS.str("");
-			mkdirSS << "mkdir ~/IsletSimBatch/data/SimBatch" << setfill('0') << setw(4) << batches[i].index << "/sim" << setfill('0') << setw(4) << j;
+			mkdirSS << "mkdir ~/IsletSimBatch/data/SimBatch" << setfill('0') << setw(4) << batch[i].index << "/sim" << setfill('0') << setw(4) << j+1;
 			root.mkdir.push_back(mkdirSS.str());
-			
-			
-						
 			string repTag = "";
-			for(int k = 0; k <= batches[i].repetitions; k++)
+			
+			// Iterate through all the desired repetitions in a simulation set, create the folders, and populate root.vector<string> variables with paths and stuff.
+			for(int k = 0; k < batch[i].repetitions; k++)
 			{		
+				// Add a line to change this run's slurm file permissions to the root.chmod vector<string>. Contents of this vector are output to root_shell.sh later.
+				// 
 				stringstream slurmSS, chmodSS, sbatchSS;			
-				slurmSS << "slurm" << simCount << ".sh";				// index slurm files
-				
+				slurmSS << "slurm" << simCount << ".sh";
 				chmodSS << "chmod u+x " << slurmSS.str();
 				root.chmod.push_back(chmodSS.str());
 				
+				// Add a line to run this slurm file
 				sbatchSS << "sbatch " << slurmSS.str();
 				root.sbatch.push_back(sbatchSS.str());
 		
-				ofstream slurmFile;
+				// Create slurm file and output the lines that are constant across all jobs in the batch
+				ofstream slurmFile;														
 				slurmFile.open(slurmSS.str());
-				slurmFile << "#!/bin/bash \n";
+				slurmFile << "#!/bin/bash \n";										
 				slurmFile << "#Setting the name of the job \n";
 				slurmFile << "#PBS -N IsletSimObjectiveTest \n";
 				slurmFile << "#Setting a walltime for the job \n";
@@ -117,31 +137,50 @@ int main( int argc , char* argv[] )
 				slurmFile << "#Selecting processors \n";
 				slurmFile << "#PBS -l nodes=1:ppn=12 \n";
 				slurmFile << "#SBATCH --reservation=janus-serial \n";
-				slurmFile << "#SBATCH --output=../data/SimBatch" << setfill('0') << setw(4) << batches[i].index << "/S" << j << "/slurm.out \n";
-				slurmFile << "cd $PBS_O_WORKDIR \n\n";
-				slurmFile << "#Execute \n\n";
-				if (batches[i].repetitions > 0)
+				
+				// iterate through repetitions of each sim. Create a new directory, and output repetition dependent lines to slurm files
+				if (batch[i].repetitions > 1)										
 				{
 					mkdirSS.str("");
-					mkdirSS << "mkdir ~/IsletSimBatch/data/SimBatch" << setfill('0') << setw(4) << batches[i].index << "/sim" << setfill('0') << setw(4) << j << "/rep" << setfill('0') << setw(2) << k+1;
+					mkdirSS << "mkdir ~/IsletSimBatch/data/SimBatch" << setfill('0') << setw(4) << batch[i].index << "/sim" << setfill('0') << setw(4) << j+1 << "/rep" << setfill('0') << setw(2) << k+1;
 					root.mkdir.push_back(mkdirSS.str());
-					slurmFile << "~/IsletSimBatch/exe/simulator.exe ../data/SimBatch" << setfill('0') << setw(4) <<batches[i].index << "/sim" << setfill('0') << setw(4) << j << "/rep" << setfill('0') << setw(2) << k+1;
+					
+					slurmFile << "#SBATCH --output=../data/SimBatch" << setfill('0') << setw(4) << batch[i].index << "/sim" << setfill('0') << setw(4) << j+1 << "/slurmRep" << setfill('0') << setw(2) << k+1 <<".out \n";
+					slurmFile << "cd $PBS_O_WORKDIR \n\n";
+					slurmFile << "#Execute \n\n";
+					
+					// This line sets runtime parameters for the simulator.exe file. Batch#, Sim #, and Rep# are used by the simulator to build the strings for where data is coming from and going to.
+					slurmFile << "~/IsletSimBatch/exe/simulator.exe Batch:" << batch[i].index << " Sim:" << j+1 << " Rep:" << k+1;  
 				}
 				else
 				{
-					slurmFile << "~/IsletSimBatch/exe/simulator.exe ../data/SimBatch" << setfill('0') << setw(4) <<batches[i].index << "/sim" << setfill('0') << setw(4) << j;
+					slurmFile << "#SBATCH --output=../data/SimBatch" << setfill('0') << setw(4) << batch[i].index << "/sim" << setfill('0') << setw(4) << j+1 << "/slurm.out \n";
+					slurmFile << "cd $PBS_O_WORKDIR \n\n";
+					slurmFile << "#Execute \n\n";
+					// This line sets the runtime parameters if there are no repetitions set. In this case, the data is output to the same directory as the inputVarialbes.txt file
+					slurmFile << "~/IsletSimBatch/exe/simulator.exe Batch:" <<batch[i].index << " Sim:" << j+1;  
 				}
 				slurmFile.close();
-				
-				//-----------------------------------------------------------------------------------------------------------------------------//
+				//---------------------------------------------------------------------------------------------------------------------------------//
 					// Make a section here that outputs metadata for the sim and batches to an index.csv file.
 					
-	
-				//-----------------------------------------------------------------------------------------------------------------------------//
-					// Make a section here that creates an input file for each simulation.
-				
 				simCount++;
 			}
+			//-----------------------------------------------------------------------------------------------------------------------------------//
+				// Create simulationVars.txt file with the custum parameters for the simulation set.
+			
+			stringstream simVarsSS;
+			simVarsSS << "../input/Batch" << setfill('0') << setw(4) <<batch[i].index << "_Sim" << setfill('0') << setw(4) <<  j+1 << "Vars.txt";
+			
+			ofstream simVarsFile;
+			simVarsFile.open(simVarsSS.str());
+			
+			// Iterate through the variable strings saved for a given simulation set. Output strings to the file
+			for(int l = 0; l < batch[i].sim[j].variableString.size(); l++)
+			{
+				simVarsFile << batch[i].sim[j].variableString[l] << endl;
+			}
+			
 		}
 	}
 	
@@ -177,6 +216,8 @@ int main( int argc , char* argv[] )
 	
 int getBatchIndex()
 {	
+	cout << "Batch Indexer test \n";
+
 	struct stat info;
 	bool batchExists = true;
 	int i;
@@ -200,15 +241,16 @@ int getBatchIndex()
 		else
 		{
 			batchExists = false;
-			cout << "New batch index is " << setfill('0') << setw(4) << i;
 		}
 	}
-	
-	return i;
+	return (i - 1);
 }
 
-int queueBatch()
+batchData queueBatch()					// queueBatch function returns custum data structure type "batchData"
 {
+	batchData newBatch;
+	newBatch.valid = true;
+	
 	bool inMenu = true;
 	while (inMenu)
 	{
@@ -239,12 +281,23 @@ int queueBatch()
 			{
 				setParams();
 			}
-			
 			else if (selectionInt == 2)
-
 			{
-				cout << "Set the amount of time to simulate in ms (default = 800000): ";
-				cin;
+				int simTime = 800000;
+				
+				
+				////////////////////////////////////////////-----------------------THIS IS WHERE I STOPPED!!!!!!!!!!!!!WAY INCOMPLETE!!!!!!!!!!!!----------//
+				stringstream userTimeSS;
+				cout << "Set the amount of time to simulate in ms (default = " << simTime <<"): ";
+				
+				bool valid = false;
+				while(!valid)
+				{
+					cin << userTime;
+					if 
+				}
+				
+				
 			}
 			else if (selectionInt == 3)
 			{
@@ -262,6 +315,9 @@ int queueBatch()
 			else if (selectionInt == 7)
 			{
 				inMenu = false;
+				
+				newBatch.valid = false;
+				return newBatch;
 			}
 			else
 			{
@@ -269,10 +325,10 @@ int queueBatch()
 			}
 		}
 	}
-	return 0;
+	return newBatch;
 }
 
-int userInterface()
+bool userInterface()
 {
 	cout << endl << "     Islet of Langerhans Beta Cell Simulator, V2.0\n";
 	cout << "Authors: Matt Westacott, Aleena Notary, William Fischer \n\n";
@@ -288,8 +344,8 @@ int userInterface()
 		cout << "Please select from the following options:\n";
 		cout << " 1. Queue a new simulation batch.\n";
 		cout << " 2. View or modify queued batches.\n";
-		cout << " 3. Run queued batches and exit.\n";
-		cout << " 4. Cancel simulations and exit.\n\n";
+		cout << " 3. Cancel simulations and exit.\n";
+		cout << " 4. Run queued batches and exit.\n\n";
 		cout << "Enter Selection:";
 		cin >> selectionString;
 		cout << endl;
@@ -303,7 +359,15 @@ int userInterface()
 		{
 			if (selectionInt == 1)
 			{
-				queueBatch();
+				batchData newBatch = queueBatch();
+				if(newBatch.valid)
+				{
+					batch.push_back(newBatch);
+				}
+				else
+				{
+					cout << "Batch Cancelled\n\n";
+				}
 			}
 			else if (selectionInt == 2)
 			{
@@ -311,11 +375,11 @@ int userInterface()
 			}
 			else if (selectionInt == 3)
 			{
-				
+				return false;
 			}
 			else if (selectionInt == 4)
 			{
-				
+				return true;
 			}
 			else
 			{
@@ -323,7 +387,6 @@ int userInterface()
 			}
 		}
 	}	
-	return 0;
 }
 
 int setParams()
