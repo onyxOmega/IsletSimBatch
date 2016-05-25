@@ -29,6 +29,7 @@ struct batchData
 	bool valid;
 	int index;
 	int repetitions;
+	string wallTime;
 	vector<simData> sim;
 };
 
@@ -44,10 +45,17 @@ struct allowedVariables
 	string name, unit, min, max, def;
 };
 
+// Set constants
+int const SIM_RATE = 1400; 																				// Approximate number of time steps per second the simulation can caluclate. Update periodically with sim tests. This is used to set wall-times in slurm control files.
+int const defaultSimTime = 200000;
+double const defaultStepTime = .14;
+
+// Declare custom functions
 bool userInterface();
 batchData queueBatch();																					// queueBatch() function returns custom data type "batchData"
 int getBatchIndex();
 int setParams();
+void displayBatchData(batchData);
 
 // Set global vector of batchData structures
 vector<batchData> batch;
@@ -55,14 +63,12 @@ vector<batchData> batch;
 int main( int argc , char* argv[] )
 {
 	int simCount = 0;
-	
 	rootShellStrings root;
-	
 	int startingBatchIndex = getBatchIndex();
 
 //------------------------------------------------------------------------------------------------------------------------------------------//
 	
-	bool confirmBatches = userInterface();														// Call user interface function
+	bool confirmBatches = userInterface();															// Call user interface function
 	
 	if (!confirmBatches)
 	{
@@ -213,7 +219,7 @@ int main( int argc , char* argv[] )
 }
 
 //--------------------------------------------------------------Functions-------------------------------------------------------------------//	
-	
+
 int getBatchIndex()
 {	
 	cout << "Batch Indexer test \n";
@@ -258,15 +264,21 @@ batchData queueBatch()					// queueBatch function returns custum data structure 
 		stringstream selectionSS;
 		int selectionInt;
 		
-		cout << "Set simulation parameters:\n";
-		cout << " 1. Set custom values for Beta cell and Islet variables. \n"; 
-		cout << " 2. Simulation time.\n";
-		cout << " 3. Step time (dt) for linear approximation.\n";
-		cout << " 4. Change randomization settings.\n";
-		cout << " 5. Change number of simulations per variable combination.\n";
+		// set default parameters for simulations.
+		int simTime = defaultSimTime;
+		double stepTime = defaultStepTime;
+		int repetitions = 1;
+		int totalSims = 1;
+		
+		cout << "Set simulation parameters (Skip for defaults):\n";
+		cout << " 1. Custom values for Beta cell and Islet variables.\n"; 
+		cout << " 2. Set Simulation time. Default: " << defaultSimTime << " ms.\n";
+		cout << " 3. Step time (dt) for linear approximation. Default: " << defaultStepTime << " ms.\n";
+		cout << " 4. Change randomization settings. Default: Time based random seed. \n";
+		cout << " 5. Change number of simulations per variable combination. Default: 1. \n";
 		cout << " 6. Save changes and return.\n";
 		cout << " 7. Cancel changes and return.\n\n";
-		cout << "Enter Selection:";
+		cout << "Enter Selection: ";
 		cin >> selectionString;
 		cout << endl;
 		selectionSS << selectionString;
@@ -277,32 +289,79 @@ batchData queueBatch()					// queueBatch function returns custum data structure 
 		}
 		else
 		{
+			// Set and validate parameters for new simulation batch.
 			if (selectionInt == 1)
 			{
 				setParams();
 			}
+			
+			// Set and validate time for new sim batch.
 			else if (selectionInt == 2)
 			{
-				int simTime = 800000;
-				
-				
-				////////////////////////////////////////////-----------------------THIS IS WHERE I STOPPED!!!!!!!!!!!!!WAY INCOMPLETE!!!!!!!!!!!!----------//
-				stringstream userTimeSS;
-				cout << "Set the amount of time to simulate in ms (default = " << simTime <<"): ";
-				
+				string runTimeString;
+				stringstream runTimeSS;		
+				int runTimeInt;
+				cout << "Set the amount of time to simulate in ms (default = " << defaultSimTime <<" ms): ";
 				bool valid = false;
 				while(!valid)
 				{
-					cin << userTime;
-					if 
+					cin >> runTimeString;
+					cout << endl;
+					runTimeSS << runTimeString;
+					runTimeSS >> runTimeInt;
+					
+					if (runTimeSS.fail())
+					{
+						cout << "Invalid data type for entry. Please enter an integer greater than 500: ";
+					}
+					else
+					{
+						if (runTimeInt < 500)
+						{
+							cout << "Invalid simulation time. Please enter a value greater than 500 ms: ";
+						}
+						else
+						{
+							simTime = runTimeInt;
+							cout << "Simulation time set to " << simTime << " ms.\n\n";
+							valid = true;
+						}
+					}
 				}
-				
-				
 			}
+			
+			// Set and validate dt value for new sim batch.
 			else if (selectionInt == 3)
 			{
-				cout << "Set the step time (default = 0.18 ms): ";
-				cin;
+				string stepString;
+				stringstream stepSS;
+				double stepDouble;
+				cout << "Set the step time (default = " << defaultStepTime << " ms): ";
+				bool valid = false;
+				while(!valid)
+				{
+					cin >> stepString;
+					stepSS << stepString;
+					stepSS >> stepDouble;
+					
+					if (stepSS.fail())
+					{
+						cout << "Invalid data type for entry. Please enter a real number between 0.01 and 0.5: ";
+					}
+					else
+					{
+						if (stepDouble < .01 || stepDouble > 0.5)
+						{
+							cout << "Invalid step time. Please enter a value between 0.01 and 0.5 ms: ";
+						}
+						else
+						{
+							stepTime = stepDouble;
+							cout << "Simulation time set to " << setprecision(2) << stepTime << " ms.\n\n";
+							valid = true;
+						}
+					}
+				}
 			}
 			else if (selectionInt == 4)
 			{
@@ -310,6 +369,27 @@ batchData queueBatch()					// queueBatch function returns custum data structure 
 			}
 			else if (selectionInt == 6)
 			{
+				int timeSteps = int(simTime/stepTime);
+			
+				int wallTime = timeSteps/(SIM_RATE);			// est seconds of wall time. Need to convert to hours, minutes, seconds.
+				double totalWallTime = wallTime * repetitions;
+				
+				cout << "Actual wall time: " << wallTime << endl;
+				// Add a buffer to wallTime to make sure enough is reserved
+				wallTime = int(wallTime*1.2);
+				cout << "Reserved wall time: " << wallTime << endl;
+				
+				int wallSeconds = wallTime%60;
+				int wallMinutes = ((wallTime - wallSeconds)%3600)/60;
+				int wallHours = wallTime/3600;
+				stringstream wallTimeSS("");
+				string wallTimeString;
+				wallTimeSS << setfill('0') << setw(2) << wallHours << ":" << setfill('0') << setw(2) << wallMinutes << ":" << setfill('0') << setw(2) << wallSeconds << endl;
+				wallTimeSS >> wallTimeString;
+				
+				newBatch.wallTime = wallTimeString;
+				cout << "Batch created:\n";
+				displayBatchData(newBatch);
 				inMenu = false;
 			}
 			else if (selectionInt == 7)
@@ -326,6 +406,11 @@ batchData queueBatch()					// queueBatch function returns custum data structure 
 		}
 	}
 	return newBatch;
+}
+
+void displayBatchData(batchData batch)
+{
+	
 }
 
 bool userInterface()
@@ -346,7 +431,7 @@ bool userInterface()
 		cout << " 2. View or modify queued batches.\n";
 		cout << " 3. Cancel simulations and exit.\n";
 		cout << " 4. Run queued batches and exit.\n\n";
-		cout << "Enter Selection:";
+		cout << "Enter Selection: ";
 		cin >> selectionString;
 		cout << endl;
 		selectionSS << selectionString;

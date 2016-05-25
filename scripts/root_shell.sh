@@ -1,5 +1,6 @@
 #!/bin/bash 
 mkdir ~/IsletSimBatch/data/SimBatch0000
+mkdir ~/IsletSimBatch/data/SimBatch0000
 mkdir ~/IsletSimBatch/data/SimBatch0001
 mkdir ~/IsletSimBatch/data/SimBatch0001/sim0001
 mkdir ~/IsletSimBatch/data/SimBatch0001/sim0001/rep01
