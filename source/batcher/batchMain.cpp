@@ -516,11 +516,12 @@ int setParams()
 	cout << " q: cancel selection and exit menu.\n\n";
 	cout << "Enter the number for the variable you want to change: "; 
 	
-	bool valid;	
+	
 	int selectionInt;
 
 	do
 	{
+		bool valid = false;	
 		string selectionString;
 		stringstream selectionSS;
 
@@ -555,17 +556,23 @@ int setParams()
 		}
 	} while (!valid);
 	
-	cout << "Enter a list of '" << okVars[selectionInt-1].name << "' values to run, separated by commas: \n";
-	
-	// Next: Parse out 
+	cout << "Enter a list of '" << okVars[selectionInt-1].name << "' values to run, separated by commas (only valid values will be used): \n";
 	
 	do
 	{
-		string selectionString;
-		stringstream selectionSS;
+		bool valid = false;	
+		char buffer[80];
+		string valuesString;
+		stringstream valuesSS;
+
+		cin >> valuesString;
+		valuesString >> valuesSS;
+		valuesSS.getline(buffer, 40, ', ');
+		cout << valuesString;
+		
+		
 		int selectionInt;
 
-		cin >> selectionString;
 		selectionSS << selectionString;
 		selectionSS >> selectionInt;
 	} while (!valid);
