@@ -37,6 +37,11 @@ struct varPermutations
 	vector<double> value; 
 };
 
+struct timeStamp
+{
+	int hour, min, sec;
+	string str;
+};
 //---------------------------------------------------------------------------------------------------------------------------------//
 struct batchData
 {
@@ -45,7 +50,7 @@ struct batchData
 	int repetitions;
 	double stepTime;
 	int simTime;
-	string wallTime;
+	timeStamp wallTime, totalWallTime;
 	vector<simData> sim;
 	
 	// Matrix containing all the permutations for every parameter in a batch.
@@ -69,6 +74,7 @@ struct allowedVariables
 
 //----------------------------------------------------------Constants-------------------------------------------------------------//
 // SIM_RATE is the number of time steps performed per second
+
 int const SIM_RATE = 1400; 																			 
 int const defaultSimTime = 200000;
 double const defaultStepTime = .16;
@@ -77,22 +83,30 @@ double const defaultStepTime = .16;
 // Declare custom functions
 bool userInterface();
 int getBatchIndex();
+timeStamp getWallTime(int);
+void checkEOR(int, vector<varPermutations>);
 void displayBatchData();
+void displayBatchData(batchData);
 void changeBatchData(batchData);
 void makeFiles();
-void makeTestBatch(int);
+void makeTestBatch();
 batchData queueBatch();																					
 varPermutations setParams();
 
 //---------------------------------------------------------------------------------------------------------------------------------//
-// Set global vector of batchData structures
+// Set globals
 vector<batchData> batches;
+vector<int> place;
+int batchIndex;
+
+int tempCount;
+
 
 //-----------------------------------------------------------Main funtion----------------------------------------------------------//
 int main( int argc , char* argv[] )
 {
-	int startingBatchIndex = getBatchIndex();
-	makeTestBatch(startingBatchIndex);
+	batchIndex = getBatchIndex();
+	makeTestBatch();
 	
 	// Call user interface function. Returns true if the user chooses to confirm their selections and the data is valid
 	bool confirmBatches = userInterface();														
@@ -109,7 +123,7 @@ int main( int argc , char* argv[] )
 	return 0;
 }
 
-//------------------------------------------------------------Functions------------------------------------------------------------//
+//------------------------------------------------------------Functions-----------------------------------------------------------//
 // Find out what the current batch index is by counting through previously created batches	
 int getBatchIndex()
 {	
@@ -165,8 +179,9 @@ batchData queueBatch()
 		cout << " 3. Step time (dt) for linear approximation. Default: " << defaultStepTime << " ms.\n";
 		cout << " 4. Change randomization settings. Default: Time based random seed. \n";
 		cout << " 5. Change number of simulations per variable combination. Default: 1. \n";
-		cout << " 6. Save changes and return.\n";
-		cout << " 7. Cancel changes and return.\n\n";
+		cout << " 6. View current batch configuration.\n";
+		cout << " 7. Save changes and return.\n";
+		cout << " 8. Cancel changes and return.\n\n";
 		cout << "Enter Selection: ";
 		cin >> selectionString;
 		cout << endl;
@@ -181,10 +196,116 @@ batchData queueBatch()
 			// Set and validate parameters for new simulation batch.
 			if (selectionInt == 1)
 			{
-				varPermutations newVariable = setParams();
-				if (newVariable.value.size() > 0)
+				bool varIsUnique = true;
+				varPermutations newParameterSet = setParams();
+				if (newParameterSet.value.size() > 0)
 				{
-					newBatch.paramMatrix.push_back(newVariable);
+					for(int i = 0; i < newBatch.paramMatrix.size(); i++)
+					{
+						if (newBatch.paramMatrix[i].name == newParameterSet.name)
+						{
+							varIsUnique = false;
+							cout << "You have already specified values for this variable. Would you like to ..." << endl;
+							cout << "  1: Add values to the set." << endl;
+							cout << "  2: Replace the set with new values." << endl;
+							cout << "  3: Cancel and go back." << endl;
+							cout << "  4: Delete parameter set and go back." << endl;
+							cout << endl << "Enter Selection: ";
+							
+							bool valid = false;
+							while (!valid)
+							{
+								string selectionString;
+								stringstream selectionSS;
+								int selectionInt;
+								cin >> selectionString;
+								cout << endl;
+								selectionSS << selectionString;
+								selectionSS >> selectionInt;
+								if (selectionSS.fail())
+								{
+									cout << "Invalid selection\n\n";
+								}
+								else
+								{
+									if (selectionInt == 1)
+									{
+										valid = true;
+										for (int j = 0; j < newParameterSet.value.size(); j++)
+										{
+											newBatch.paramMatrix[i].value.push_back(newParameterSet.value[j]);
+										}
+										sort(newBatch.paramMatrix[i].value.begin(), newBatch.paramMatrix[i].value.end());
+										newBatch.paramMatrix[i].value.erase( unique( newBatch.paramMatrix[i].value.begin(), newBatch.paramMatrix[i].value.end() ), newBatch.paramMatrix[i].value.end() );
+										cout << "The batch will run the following values for " << newParameterSet.name << ": ";
+										for (int k = 0; k < newBatch.paramMatrix[i].value.size(); k++)
+										{
+											cout << newBatch.paramMatrix[i].value[k];
+											if (k != newBatch.paramMatrix[i].value.size()-1)
+											{
+												cout << ", ";
+											}
+										}
+										cout << ";\n\n";
+									}
+									else if (selectionInt == 2)
+									{
+										valid = true;
+										newBatch.paramMatrix[i] = newParameterSet;
+										cout << "The batch will run the following values for " << newParameterSet.name << ": ";
+										for (int k = 0; k < newBatch.paramMatrix[i].value.size(); k++)
+										{
+											cout << newBatch.paramMatrix[i].value[k];
+											if (k != newBatch.paramMatrix[i].value.size()-1)
+											{
+												cout << ", ";
+											}
+										}
+										cout << ";\n\n";
+									}
+									else if (selectionInt == 3)
+									{
+										valid = true;
+										cout << "Operation cancelled. \n";
+										cout << "The batch will run the following values for " << newParameterSet.name << ": ";
+										for (int k = 0; k < newBatch.paramMatrix[i].value.size(); k++)
+										{
+											cout << newBatch.paramMatrix[i].value[k];
+											if (k != newBatch.paramMatrix[i].value.size()-1)
+											{
+												cout << ", ";
+											}
+										}
+										cout << ";\n\n";
+									}
+									else if (selectionInt == 4)
+									{
+										valid = true;
+										newBatch.paramMatrix.erase(newBatch.paramMatrix.begin()+i);
+									}
+									else
+									{
+										cout << "Invalid selection. Please enter an integer from 1 to 4: ";
+									}
+								}
+							}
+						}
+					}
+					
+					if(varIsUnique)
+					{
+						newBatch.paramMatrix.push_back(newParameterSet);
+						cout << "The batch will run the following values for " << newParameterSet.name << ": ";
+						for (int i = 0; i < newParameterSet.value.size(); i++)
+						{
+							cout << newParameterSet.value[i];
+							if (i != newParameterSet.value.size() -1)
+							{
+								cout << ", ";
+							}
+						}
+						cout << ";\n\n";
+					}
 				}
 			}
 			
@@ -252,7 +373,6 @@ batchData queueBatch()
 							newBatch.stepTime = stepDouble;
 							cout << "Simulation time set to " << setprecision(2) << newBatch.stepTime << " ms.\n\n";
 							valid = true;
-							
 							cout << newBatch.stepTime;
 						}
 					}
@@ -263,40 +383,133 @@ batchData queueBatch()
 				cout << "'Change randomization settings' is not set up yet. \n";
 			}
 			
-			//	Fill in empty values with defaults, then commit changes
+			else if (selectionInt == 5)
+			{
+				cout << "Enter the number of repetitions to perform for each simulation (max of 100): ";
+				bool valid = false;
+				while (!valid)
+				{
+					string repsString;
+					stringstream repsSS;
+					int repsInt;
+					cin >> repsString;
+					repsSS << repsString;
+					repsSS >> repsInt;
+					if (repsSS.fail())
+					{
+						cout << "Invalid selection\n\n";
+					}
+					else
+					{
+						if (repsInt > 0 && repsInt <= 100)
+						{
+							valid = true;
+							newBatch.repetitions = repsInt;
+						}
+						else
+						{
+							cout << "Invalid selection. Please enter an integer from 1 to 100: "; 
+						}
+					}
+				}
+			}
+						
 			else if (selectionInt == 6)
-			{		
-				cout << "Sim Time = " << newBatch.simTime << ". Step time = " << newBatch.stepTime << endl;
+			{
+				displayBatchData(newBatch);
+				cout << "Press ENTER to continue.";
+				cin.ignore();
+				getchar();
+				cout << endl;
+			}
+			
+			//	Fill in empty values with defaults, then commit changes
+			else if (selectionInt == 7)
+			{
+				
+				// Reset placeholder vector for iterating through parameter combinations
+				int simCount = 1;
+				place.clear();
+
+				for (int i = 0; i < newBatch.paramMatrix.size(); i++)
+				{
+					place.push_back(0);
+					simCount = simCount * newBatch.paramMatrix[i].value.size();
+				}
+								
+				// Iterate through each combination of variables
+				for (int j = 0; j < simCount; j++)
+				{	
+					simData newSim;
+					
+					// Create the variable list for a single sim, add each line to the simData.variableString vector
+					for (int i = 0; i < place.size(); i++)
+					{
+						// Create a sim value vector for a distinct combination
+						stringstream simSS;
+						string simString;
+						simSS << newBatch.paramMatrix[i].name << "=" << newBatch.paramMatrix[i].value[place[i]] << ";";
+						simSS >> simString;
+						newSim.variableString.push_back(simString);
+						
+						// Start the iteration process at the end of the place vector
+						if (i == place.size() - 1)
+						{
+							checkEOR(i, newBatch.paramMatrix);
+						}
+						
+						// Add simTime, stepTime, etc, for a single sim
+						simSS.str("");
+						simSS << "stepTime=" << newBatch.stepTime << ";";
+						simSS >> simString;
+						newSim.variableString.push_back(simString);
+						
+						simSS.str("");
+						simSS << "simTime=" << newBatch.simTime << ";";
+						simSS >> simString;
+						newSim.variableString.push_back(simString);
+					}
+					// Adds the list of variables for each unique simulation to the batch's sim vector
+					newBatch.sim.push_back(newSim);
+					
+				}
+				
+				cout << "Batch created: \n";
+				cout << "  Unique simulations: " << newBatch.sim.size() << endl;
+				cout << "  Repetitions of each simulation: " << newBatch.repetitions << endl;
+				cout << "  Total number of total simulations: " << newBatch.sim.size() * newBatch.repetitions << endl;
+				displayBatchData(newBatch);
 				int timeSteps = int(newBatch.simTime/newBatch.stepTime);
 				
 				// est seconds of wall time. Need to convert to hours, minutes, seconds.
-				int wallTime = timeSteps/(SIM_RATE);			
-				double totalWallTime = wallTime * newBatch.repetitions;
+				int wallSeconds = timeSteps/(SIM_RATE);
+				int totalWallSeconds = int(wallSeconds * newBatch.repetitions * newBatch.sim.size());
+				int reservedWallSeconds = int(wallSeconds*1.2);
+				int totalReservedWallSeconds = int(totalWallSeconds*1.2);
 				
-				cout << "Actual wall time: " << wallTime << endl;
+				timeStamp wallTime = getWallTime(wallSeconds);
+				timeStamp totalWallTime = getWallTime(totalWallSeconds);
+				newBatch.wallTime = getWallTime(reservedWallSeconds);
+				newBatch.totalWallTime = getWallTime(totalReservedWallSeconds);
+				
+				cout << "  Predicted actual wall time per simulation: " << wallTime.str << endl;
+				cout << "  Predicted actual total wall time for the batch: " << totalWallTime.str << endl;
 				// Add a buffer to wallTime to make sure enough is reserved
-				wallTime = int(wallTime*1.2);
-				cout << "Reserved wall time: " << wallTime << endl;
 				
-				int wallSeconds = wallTime%60;
-				int wallMinutes = ((wallTime - wallSeconds)%3600)/60;
-				int wallHours = wallTime/3600;
-				stringstream wallTimeSS("");
-				string wallTimeString;
-				wallTimeSS << setfill('0') << setw(2) << wallHours << ":" << setfill('0') << setw(2) << wallMinutes << ":" << setfill('0') << setw(2) << wallSeconds << endl;
-				wallTimeSS >> wallTimeString;
+				cout << "  Reserved wall time per simulation: " << newBatch.wallTime.str << endl;
+				cout << "  Reserved total wall time for the batch: " << newBatch.totalWallTime.str << endl << endl;
 				
-				newBatch.wallTime = wallTimeString;
-
-				cout << "Batch created... \n\n";
+				batchIndex++;
+				newBatch.index = batchIndex;
+				
 				inMenu = false;	
 				return newBatch;
 			}
-			else if (selectionInt == 7)
+			else if (selectionInt == 8)
 			{
 				inMenu = false;
 				newBatch.valid = false;
-				return newBatch;
+				return newBatch;	
 			}
 			else
 			{
@@ -307,21 +520,56 @@ batchData queueBatch()
 }
 
 //---------------------------------------------------------------------------------------------------------------------------------//
+// Recursive function to see if the paramMatrix.value vector is at the end of a given row. Iterates to the next step either way.
+void checkEOR(int i, vector<varPermutations> paramMatrix)
+{
+	if (place[i] == paramMatrix[i].value.size() - 1)
+	{
+		place[i] = 0;
+		i--;
+		checkEOR(i, paramMatrix);
+	}
+	else
+	{
+		place[i]++;
+	}
+}
+
+timeStamp getWallTime(int totalSeconds)
+{
+	timeStamp newWallTime;
+	newWallTime.sec = totalSeconds % 60;
+	int remainingSeconds = totalSeconds - newWallTime.sec;
+	int totalMinutes = remainingSeconds/60;
+	newWallTime.min = totalMinutes%60;
+	int remainingMinutes = totalMinutes - newWallTime.min;
+	newWallTime.hour = remainingMinutes/60;
+	
+	stringstream wallTimeSS;
+	wallTimeSS << setfill('0') << setw(2) << newWallTime.hour << ":" << setfill('0') << setw(2) << newWallTime.min << ":" << setfill('0') << setw(2) << newWallTime.sec;
+	wallTimeSS >> newWallTime.str;
+	return newWallTime;
+}
+
+//---------------------------------------------------------------------------------------------------------------------------------//
 // Show details about queued batches
 void displayBatchData()
 {
 	for(int i = 0; i < batches.size(); i++)
 	{
 		cout << "Batch " << i + 1 << endl;
+		cout << "  Index: " << batches[i].index << endl;
+		cout << "  Valid batch: " << boolalpha << batches[i].valid << endl;
 		cout << "  Simulation time: " << batches[i].simTime << endl;
 		cout << "  Step time: " << batches[i].stepTime << endl;
+		cout << "  Number of unique simulations: " <<  batches[i].sim.size() << endl;
 		cout << "  Number of repetitions of each simulation: " << batches[i].repetitions << endl;
-		cout << "  Total number of simulations: ... \n";
-		cout << "  Estimated wall time per simulation: ... \n";
-		cout << "  Estimated total wall time: ...\n";
+		cout << "  Total number of simulations: " << batches[i].repetitions * batches[i].sim.size() << endl;
+		cout << "  Reserved wall time per simulation: " << batches[i].wallTime.str << endl;
+		cout << "  Reserved total wall time: " << batches[i].totalWallTime.str << endl;
 		if (batches[i].paramMatrix.size() == 0)
 		{
-			cout << "  No custom parameters set. Using simulation defaults.\n\n";
+			cout << "  No custom parameters set. Using simulation defaults.\n";
 		}
 		for (int j = 0; j < batches[i].paramMatrix.size(); j++)
 		{
@@ -348,8 +596,9 @@ void displayBatchData()
 				cout << endl;
 			}
 		}
+		cout << endl;
 	}
-	cout << endl;
+	
 	cout << "Enter a batch to edit (q to cancel): ";
 	bool valid = false;
 	
@@ -388,6 +637,38 @@ void displayBatchData()
 	}
 }
 
+void displayBatchData(batchData currentBatch)
+{
+	cout << "  Simulation time: " << currentBatch.simTime << endl;
+	cout << "  Step time: " << currentBatch.stepTime << endl;
+	cout << "  Number of repetitions of each simulation: " << currentBatch.repetitions << endl;
+
+	if (currentBatch.paramMatrix.size() == 0)
+	{
+		cout << "  No custom parameters set. Using simulation defaults.\n\n";
+	}
+	for (int j = 0; j < currentBatch.paramMatrix.size(); j++)
+	{
+		if(j == 0)
+		{
+			cout << "  Custom parameters to run...\n";
+		}
+		cout <<"    " << currentBatch.paramMatrix[j].name << " = ";
+		for (int k = 0; k < currentBatch.paramMatrix[j].value.size(); k++)
+		{
+			cout << currentBatch.paramMatrix[j].value[k];
+			if (k < currentBatch.paramMatrix[j].value.size() - 1)
+			{
+				cout << ", ";
+			}
+			else
+			{
+				cout << ";\n";
+			}
+		}
+	}
+}
+	
 //---------------------------------------------------------------------------------------------------------------------------------//
 // Modify details about queued batches
 void changeBatchData(batchData batch)
@@ -485,7 +766,7 @@ varPermutations setParams()
 	int colWidth = 14;
 	int numWidth = 4;
 	
-	cout << "Choose from the following parameters: \n\n";
+	cout << "Choose from the following parameters: \n";
 	cout << setw(colWidth) << "Var Name";
 	cout << setw(colWidth) << "Min Value";
 	cout << setw(colWidth) << "Max Value";
@@ -501,12 +782,12 @@ varPermutations setParams()
 		cout << setw(colWidth) << fixed << setprecision(2) << okVars[i].def; 
 		cout << setw(colWidth) << okVars[i].unit << endl; 
 	}
-	cout << " q: cancel selection and exit menu.\n\n";
-	cout << "Enter the number for the variable you want to change: "; 
+	cout << " q: Cancel selection and return.\n\n";
+	cout << "Enter the number for the variable you want to specify: "; 
 	
 	int selectionInt;
-	bool valid = false;
-		
+	bool valid = false;	
+	
 	while (valid == false)
 	{
 		string selectionString;
@@ -533,7 +814,6 @@ varPermutations setParams()
 		{
 			if (selectionInt <= okVars.size() && selectionInt > 0)
 			{
-				cout << "Valid Selection!\n";
 				valid = true;
 			}
 			else
@@ -553,9 +833,6 @@ varPermutations setParams()
 	double tempValue;
 	cin.ignore();							// removes \n frim the input buffer so the getline reads the next user input.
 	getline(cin, valuesString);
-	
-	cout << "valuesString is " << valuesString << endl;
-	cout << "selectionInt " << selectionInt << endl;
 	valuesSS << valuesString;
 	
 	while (valuesSS)
@@ -565,7 +842,6 @@ varPermutations setParams()
 		{
 			if (tempValue <= okVars[selectionInt-1].max &&  tempValue >= okVars[selectionInt-1].min)
 			{
-				cout << tempValue << " ";
 				newVariable.value.push_back(tempValue);
 			}
 		}
@@ -573,15 +849,8 @@ varPermutations setParams()
 	cout << endl;
 	
 	sort(newVariable.value.begin(), newVariable.value.end());
-	
-	cout << newVariable.name << " = ";
-	for (int i = 0; i < newVariable.value.size(); i++)
-	{
-		cout << newVariable.value[i] << ", ";
-	}
-	
-	cout << endl;
-	
+	newVariable.value.erase( unique( newVariable.value.begin(), newVariable.value.end() ), newVariable.value.end() );
+
 	return newVariable;
 }
 
@@ -628,7 +897,7 @@ void makeFiles()
 				slurmFile << "#Setting the name of the job \n";
 				slurmFile << "#PBS -N IsletSimObjectiveTest \n";
 				slurmFile << "#Setting a walltime for the job \n";
-				slurmFile << "#PBS -l walltime=0:05:00 \n";
+				slurmFile << "#PBS -l walltime=" << batches[i].wallTime.str << "\n";
 				slurmFile << "#Selecting processors \n";
 				slurmFile << "#PBS -l nodes=1:ppn=12 \n";
 				slurmFile << "#SBATCH --reservation=janus-serial \n";
@@ -705,7 +974,7 @@ void makeFiles()
 
 //---------------------------------------------------------------------------------------------------------------------------------//
 // Create temporary batch data for testing;
-void makeTestBatch(int startingBatchIndex)
+void makeTestBatch()
 {
 	for (int bI = 0; bI < 3; bI++)
 	{
@@ -733,8 +1002,12 @@ void makeTestBatch(int startingBatchIndex)
 		// add index to temporary batch
 		tempBatch.stepTime = .1;
 		tempBatch.simTime = bI * 10;
-		tempBatch.index = startingBatchIndex + bI;											
+											
 		tempBatch.repetitions = 3 - bI;
+		
+		// Initial batchIndex value is derived from current folder population. The first one used in the new batch is one increment up.
+		batchIndex++;
+		tempBatch.index = batchIndex;
 		
 		// add temporary batch to batch list. All batches will go in this stack
 		batches.push_back(tempBatch); 																
