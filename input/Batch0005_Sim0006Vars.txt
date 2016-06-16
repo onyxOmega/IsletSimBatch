@@ -1,6 +1,0 @@
-test1=105;
-test1=105;
-test1=105;
-test2=0.2;
-test2=0.2;
-test2=0.2;

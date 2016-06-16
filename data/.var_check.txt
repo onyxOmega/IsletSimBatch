@@ -1,6 +1,0 @@
-var	min	max	def	units
-test1	100	4000000	800000	ms
-test2	0.01	0.3	0.18	ms
-test3	-50	50	0	ag
-test4	0	100000	5	als
-test5	3131	5189681	20365	brp

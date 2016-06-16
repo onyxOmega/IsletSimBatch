@@ -46,8 +46,10 @@ struct timeStamp
 struct batchData
 {
 	bool valid;
-	int index;
-	int repetitions;
+	// queue is used to index the number of batches queued in a given run, while index is for overall sorting of all
+	// the batches ever run.
+	int index, queue;
+	int repetitions, simCount;
 	double stepTime;
 	int simTime;
 	timeStamp wallTime, totalWallTime;
@@ -84,29 +86,40 @@ double const defaultStepTime = .16;
 bool userInterface();
 int getBatchIndex();
 timeStamp getWallTime(int);
+batchData updateTimestamp(batchData);
+batchData setupSims(batchData);
+batchData queueBatch(batchData);	
+varPermutations setParams();	
 void checkEOR(int, vector<varPermutations>);
-void displayBatchData();
+void listBatches();
 void displayBatchData(batchData);
 void changeBatchData(batchData);
 void makeFiles();
 void makeTestBatch();
-batchData queueBatch();																					
-varPermutations setParams();
+void updateConfig();
+
+void pressEnter();
+bool confirm(string, string, string, string);
+int getValidInt(int, int, string, string);
+																			
+
 
 //---------------------------------------------------------------------------------------------------------------------------------//
 // Set globals
 vector<batchData> batches;
 vector<int> place;
 int batchIndex;
-
 int tempCount;
 
 
 //-----------------------------------------------------------Main funtion----------------------------------------------------------//
 int main( int argc , char* argv[] )
 {
+	place.reserve(20);
+	
 	batchIndex = getBatchIndex();
-	makeTestBatch();
+	
+	//makeTestBatch();
 	
 	// Call user interface function. Returns true if the user chooses to confirm their selections and the data is valid
 	bool confirmBatches = userInterface();														
@@ -119,7 +132,8 @@ int main( int argc , char* argv[] )
 	
 
 	makeFiles();
-
+	updateConfig();
+	
 	return 0;
 }
 
@@ -127,52 +141,53 @@ int main( int argc , char* argv[] )
 // Find out what the current batch index is by counting through previously created batches	
 int getBatchIndex()
 {	
-	struct stat info;
-	bool batchExists = true;
-	int i;
+	ifstream configFile;
+	configFile.open("../conf/.config.ini");
 	
-	for (i = 1; batchExists; i++)
-	{
-		stringstream pathSS;
-		pathSS << "../data/SimBatch" << setfill('0') << setw(4) << i;
-		string pathString;
-		pathSS >> pathString;
-		const char* batchChars = pathString.c_str();
-		
-		if(stat(batchChars, &info ) != 0)
-		{
-			batchExists = false;
-		}
-		else if(info.st_mode & S_IFDIR )
-		{
-			batchExists = true;
-		}
-		else
-		{
-			batchExists = false;
-		}
-	}
-	return (i - 1);
+	int index;
+	stringstream convertSS;
+	string toss, keep;
+	getline(configFile, toss, '=');
+	getline(configFile, keep, ';');
+	convertSS << keep;
+	convertSS >> index;
+	configFile.close();
+	return index;
+}
+
+void updateConfig()
+{
+	ofstream configFile;
+	configFile.open("../conf/.config.ini");
+	cout << "closing index = " <<  batchIndex << endl;
+	configFile << "lastIndex=" << batchIndex << ";" << endl;
 }
 
 //---------------------------------------------------------------------------------------------------------------------------------//
 // Create a new simulation batch
-batchData queueBatch()					
+batchData queueBatch(batchData newBatch)					
 {
-	batchData newBatch;
-	newBatch.valid = true;
-	newBatch.simTime = defaultSimTime;
-	newBatch.stepTime = defaultStepTime;
-	newBatch.repetitions = 1;
-	int totalSims = 1;
-	bool inMenu = true;
+	// Set standard parameters for a new batch that hasn't been previously validated. This step is skipped
+	// when editing existing batches.
+	if (!newBatch.valid)
+	{
+		newBatch.valid = true;
+		newBatch.queue = batches.size() + 1;
+		batchIndex++;
+		newBatch.index = batchIndex;		
+		newBatch.simTime = defaultSimTime;
+		newBatch.stepTime = defaultStepTime;
+		newBatch.repetitions = 1;
+		int totalSims = 1;
+	}
 	
+	bool inMenu = true;
 	while (inMenu)
 	{
 		string selectionString;
 		stringstream selectionSS;
 		int selectionInt;
-				
+		
 		cout << "Set simulation parameters (Skip for defaults):\n";
 		cout << " 1. Add custom values for a Beta cell or Islet variable.\n"; 
 		cout << " 2. Set Simulation time. Default: " << defaultSimTime << " ms.\n";
@@ -198,6 +213,17 @@ batchData queueBatch()
 			{
 				bool varIsUnique = true;
 				varPermutations newParameterSet = setParams();
+				
+				/* Testing some stuff 
+				cout << "new set name: " << newParameterSet.name << endl;
+				cout << "set names already listed: ";
+				for(int i = 0; i < newBatch.paramMatrix.size(); i++)
+				{
+					cout << newBatch.paramMatrix[i].name << ", ";
+				}
+				cout << endl;
+				*/
+				
 				if (newParameterSet.value.size() > 0)
 				{
 					for(int i = 0; i < newBatch.paramMatrix.size(); i++)
@@ -288,7 +314,7 @@ batchData queueBatch()
 										cout << "Invalid selection. Please enter an integer from 1 to 4: ";
 									}
 								}
-							}
+							}						
 						}
 					}
 					
@@ -416,92 +442,20 @@ batchData queueBatch()
 						
 			else if (selectionInt == 6)
 			{
+				newBatch = setupSims(newBatch);
+				newBatch = updateTimestamp(newBatch);
 				displayBatchData(newBatch);
-				cout << "Press ENTER to continue.";
-				cin.ignore();
-				getchar();
-				cout << endl;
+				pressEnter();
 			}
 			
 			//	Fill in empty values with defaults, then commit changes
 			else if (selectionInt == 7)
 			{
-				
-				// Reset placeholder vector for iterating through parameter combinations
-				int simCount = 1;
-				place.clear();
-
-				for (int i = 0; i < newBatch.paramMatrix.size(); i++)
-				{
-					place.push_back(0);
-					simCount = simCount * newBatch.paramMatrix[i].value.size();
-				}
-								
-				// Iterate through each combination of variables
-				for (int j = 0; j < simCount; j++)
-				{	
-					simData newSim;
-					
-					// Create the variable list for a single sim, add each line to the simData.variableString vector
-					for (int i = 0; i < place.size(); i++)
-					{
-						// Create a sim value vector for a distinct combination
-						stringstream simSS;
-						string simString;
-						simSS << newBatch.paramMatrix[i].name << "=" << newBatch.paramMatrix[i].value[place[i]] << ";";
-						simSS >> simString;
-						newSim.variableString.push_back(simString);
-						
-						// Start the iteration process at the end of the place vector
-						if (i == place.size() - 1)
-						{
-							checkEOR(i, newBatch.paramMatrix);
-						}
-						
-						// Add simTime, stepTime, etc, for a single sim
-						simSS.str("");
-						simSS << "stepTime=" << newBatch.stepTime << ";";
-						simSS >> simString;
-						newSim.variableString.push_back(simString);
-						
-						simSS.str("");
-						simSS << "simTime=" << newBatch.simTime << ";";
-						simSS >> simString;
-						newSim.variableString.push_back(simString);
-					}
-					// Adds the list of variables for each unique simulation to the batch's sim vector
-					newBatch.sim.push_back(newSim);
-					
-				}
-				
-				cout << "Batch created: \n";
-				cout << "  Unique simulations: " << newBatch.sim.size() << endl;
-				cout << "  Repetitions of each simulation: " << newBatch.repetitions << endl;
-				cout << "  Total number of total simulations: " << newBatch.sim.size() * newBatch.repetitions << endl;
+				newBatch = setupSims(newBatch);
+				newBatch = updateTimestamp(newBatch);
+				cout << "Queuing the following batch: \n";
 				displayBatchData(newBatch);
-				int timeSteps = int(newBatch.simTime/newBatch.stepTime);
-				
-				// est seconds of wall time. Need to convert to hours, minutes, seconds.
-				int wallSeconds = timeSteps/(SIM_RATE);
-				int totalWallSeconds = int(wallSeconds * newBatch.repetitions * newBatch.sim.size());
-				int reservedWallSeconds = int(wallSeconds*1.2);
-				int totalReservedWallSeconds = int(totalWallSeconds*1.2);
-				
-				timeStamp wallTime = getWallTime(wallSeconds);
-				timeStamp totalWallTime = getWallTime(totalWallSeconds);
-				newBatch.wallTime = getWallTime(reservedWallSeconds);
-				newBatch.totalWallTime = getWallTime(totalReservedWallSeconds);
-				
-				cout << "  Predicted actual wall time per simulation: " << wallTime.str << endl;
-				cout << "  Predicted actual total wall time for the batch: " << totalWallTime.str << endl;
-				// Add a buffer to wallTime to make sure enough is reserved
-				
-				cout << "  Reserved wall time per simulation: " << newBatch.wallTime.str << endl;
-				cout << "  Reserved total wall time for the batch: " << newBatch.totalWallTime.str << endl << endl;
-				
-				batchIndex++;
-				newBatch.index = batchIndex;
-				
+				pressEnter();
 				inMenu = false;	
 				return newBatch;
 			}
@@ -520,6 +474,64 @@ batchData queueBatch()
 }
 
 //---------------------------------------------------------------------------------------------------------------------------------//
+// Iterate through all variable combinations and make a sim for each
+batchData setupSims(batchData currentBatch)
+{
+	int simCount = 1;
+	currentBatch.sim.clear();
+	place.clear();
+	
+	for (int i = 0; i < currentBatch.paramMatrix.size(); i++)
+	{
+		place.push_back(0);
+		simCount = simCount * currentBatch.paramMatrix[i].value.size();
+	}
+		
+	// Iterate through each combination of variables
+	for (int j = 0; j < simCount; j++)
+	{	
+		simData newSim;
+		
+		// Create the variable list for a single sim, add each line to the simData.variableString vector
+		for (int i = 0; i < place.size(); i++)
+		{
+			// Create a sim value vector for a distinct combination
+			stringstream simSS;
+			string simString;
+			simSS << currentBatch.paramMatrix[i].name << "=" << currentBatch.paramMatrix[i].value[place[i]] << ";";
+			simSS >> simString;
+			newSim.variableString.push_back(simString);
+			
+			// Start the iteration process at the end of the place vector
+			if (i == place.size() - 1)
+			{
+				checkEOR(i, currentBatch.paramMatrix);
+			}
+			
+		
+		}	
+		// Add simTime, stepTime, etc, for a single sim
+		stringstream simSS;
+		string simString;
+		simSS << "stepTime=" << currentBatch.stepTime << ";";
+		simSS >> simString;
+		newSim.variableString.push_back(simString);
+		
+		simSS.str("");
+		simString = "";
+		simSS << "simTime=" << currentBatch.simTime << ";";
+		simSS >> simString;
+		newSim.variableString.push_back(simString);
+		
+		// Adds the list of variables for each unique simulation to the batch's sim vector
+		currentBatch.sim.push_back(newSim);
+	}
+	
+	currentBatch.simCount = currentBatch.sim.size() * currentBatch.repetitions;
+	return currentBatch;
+}
+
+//---------------------------------------------------------------------------------------------------------------------------------//
 // Recursive function to see if the paramMatrix.value vector is at the end of a given row. Iterates to the next step either way.
 void checkEOR(int i, vector<varPermutations> paramMatrix)
 {
@@ -535,6 +547,28 @@ void checkEOR(int i, vector<varPermutations> paramMatrix)
 	}
 }
 
+//---------------------------------------------------------------------------------------------------------------------------------//
+// Calculate new time estimates based on the total number of sims running, the runtime, and the number of repetitions.
+batchData updateTimestamp(batchData currentBatch)
+{
+	// calculate number of time steps
+	int timeSteps = int(currentBatch.simTime/currentBatch.stepTime);
+	
+	// est seconds of wall time. Need to convert to hours, minutes, seconds.
+	int wallSeconds = timeSteps/(SIM_RATE);
+	int totalWallSeconds = int(wallSeconds * currentBatch.simCount);
+	int reservedWallSeconds = int(wallSeconds*1.2);
+	int totalReservedWallSeconds = int(totalWallSeconds*1.2);
+	
+	// timeStamp wallTime = getWallTime(wallSeconds);
+	// timeStamp totalWallTime = getWallTime(totalWallSeconds);
+	currentBatch.wallTime = getWallTime(reservedWallSeconds);
+	currentBatch.totalWallTime = getWallTime(totalReservedWallSeconds);
+	return currentBatch;
+}
+
+//---------------------------------------------------------------------------------------------------------------------------------//
+// Get a string value for the wall time in HH:MM:SS format
 timeStamp getWallTime(int totalSeconds)
 {
 	timeStamp newWallTime;
@@ -553,100 +587,79 @@ timeStamp getWallTime(int totalSeconds)
 
 //---------------------------------------------------------------------------------------------------------------------------------//
 // Show details about queued batches
-void displayBatchData()
+void listBatches()
 {
-	for(int i = 0; i < batches.size(); i++)
-	{
-		cout << "Batch " << i + 1 << endl;
-		cout << "  Index: " << batches[i].index << endl;
-		cout << "  Valid batch: " << boolalpha << batches[i].valid << endl;
-		cout << "  Simulation time: " << batches[i].simTime << endl;
-		cout << "  Step time: " << batches[i].stepTime << endl;
-		cout << "  Number of unique simulations: " <<  batches[i].sim.size() << endl;
-		cout << "  Number of repetitions of each simulation: " << batches[i].repetitions << endl;
-		cout << "  Total number of simulations: " << batches[i].repetitions * batches[i].sim.size() << endl;
-		cout << "  Reserved wall time per simulation: " << batches[i].wallTime.str << endl;
-		cout << "  Reserved total wall time: " << batches[i].totalWallTime.str << endl;
-		if (batches[i].paramMatrix.size() == 0)
+	if (batches.size() != 0)
 		{
-			cout << "  No custom parameters set. Using simulation defaults.\n";
+			for(int i = 0; i < batches.size(); i++)
+		{
+			displayBatchData(batches[i]);
 		}
-		for (int j = 0; j < batches[i].paramMatrix.size(); j++)
+		
+		cout << "Enter a batch to edit (q to cancel): ";
+		bool valid = false;
+		
+		while (!valid)
 		{
-			if(j == 0)
+			string selectionString;
+			stringstream selectionSS;
+			int selectionInt;
+			cin >> selectionString;
+			cout << endl;
+			selectionSS << selectionString;
+			selectionSS >> selectionInt;
+			if (selectionSS.fail())
 			{
-				cout << "  Custom parameters to run...\n";
-			}
-			cout <<"    " << batches[i].paramMatrix[j].name << " = ";
-			for (int k = 0; k < batches[i].paramMatrix[j].value.size(); k++)
-			{
-				cout << batches[i].paramMatrix[j].value[k];
-				if (k < batches[i].paramMatrix[j].value.size() - 1)
+				if(selectionString == "q")
 				{
-					cout << ", ";
+					return;
 				}
 				else
 				{
-					cout << ";\n";
+					cout << "Invalid input. Please enter the batch number for the batch you would like to edit, or enter q to cancel: ";
 				}
 			}
-			
-			if(j == batches[i].paramMatrix.size()-1)
+			else
 			{
-				cout << endl;
+				if(selectionInt > 0 && selectionInt <= batches.size())
+				{
+					changeBatchData(batches[selectionInt-1]);
+					valid = true;
+				}
+				else
+				{
+					cout << "Invalid selection. Please enter the batch number for the batch you would like to edit, or enter q to cancel: ";
+				}	
 			}
 		}
-		cout << endl;
 	}
-	
-	cout << "Enter a batch to edit (q to cancel): ";
-	bool valid = false;
-	
-	while (!valid)
+	else
 	{
-		string selectionString;
-		stringstream selectionSS;
-		int selectionInt;
-		cin >> selectionString;
-		cout << endl;
-		selectionSS << selectionString;
-		selectionSS >> selectionInt;
-		if (selectionSS.fail())
-		{
-			if(selectionString == "q")
-			{
-				return;
-			}
-			else
-			{
-				cout << "Invalid input. Please enter the batch number for the batch you would like to edit, or enter q to cancel: ";
-			}
-		}
-		else
-		{
-			if(selectionInt > 0 && selectionInt <= batches.size())
-			{
-				changeBatchData(batches[selectionInt-1]);
-				valid = true;
-			}
-			else
-			{
-				cout << "Invalid selection. Please enter the batch number for the batch you would like to edit, or enter q to cancel: ";
-			}	
-		}
-	}
+		cout << "No batches are queued. ";
+		pressEnter();
+	}	
 }
 
+//---------------------------------------------------------------------------------------------------------------------------------//
+// Show details about a single queued batch
 void displayBatchData(batchData currentBatch)
 {
+	cout << "Batch #" << currentBatch.queue << endl;
+	cout << "  Global index: " << currentBatch.index << endl;
+	cout << "  Valid batch: " << boolalpha << currentBatch.valid << endl;
 	cout << "  Simulation time: " << currentBatch.simTime << endl;
 	cout << "  Step time: " << currentBatch.stepTime << endl;
+	cout << "  Number of unique simulations: " <<  currentBatch.sim.size() << endl;
 	cout << "  Number of repetitions of each simulation: " << currentBatch.repetitions << endl;
-
+	cout << "  Total number of simulations: " << currentBatch.simCount << endl;
+	cout << "  Reserved wall time per simulation: " << currentBatch.wallTime.str << endl;
+	cout << "  Reserved total wall time: " << currentBatch.totalWallTime.str << endl;
+	
 	if (currentBatch.paramMatrix.size() == 0)
 	{
 		cout << "  No custom parameters set. Using simulation defaults.\n\n";
 	}
+	
 	for (int j = 0; j < currentBatch.paramMatrix.size(); j++)
 	{
 		if(j == 0)
@@ -666,15 +679,21 @@ void displayBatchData(batchData currentBatch)
 				cout << ";\n";
 			}
 		}
+		
+		if(j == currentBatch.paramMatrix.size()-1)
+		{
+			cout << endl;
+		}
 	}
 }
-	
+
 //---------------------------------------------------------------------------------------------------------------------------------//
 // Modify details about queued batches
-void changeBatchData(batchData batch)
+void changeBatchData(batchData currentBatch)
 {
-	cout << "Change batch data... \n\n";
-	displayBatchData();
+	cout << "Change batch data... \n\n";				
+	displayBatchData(currentBatch);
+	batches[currentBatch.queue - 1] = queueBatch(currentBatch);
 }
 
 //---------------------------------------------------------------------------------------------------------------------------------//
@@ -710,7 +729,9 @@ bool userInterface()
 		{
 			if (selectionInt == 1)
 			{
-				batchData newBatch = queueBatch();
+				batchData emptyBatch;
+				emptyBatch.valid = false;
+				batchData newBatch = queueBatch(emptyBatch);
 				if(newBatch.valid)
 				{
 					batches.push_back(newBatch);
@@ -722,7 +743,7 @@ bool userInterface()
 			}
 			else if (selectionInt == 2)
 			{
-				displayBatchData();
+				listBatches();
 			}
 			else if (selectionInt == 3)
 			{
@@ -748,7 +769,7 @@ varPermutations setParams()
 	varPermutations newVariable;
 	
 	ifstream varCheckFile;
-	varCheckFile.open("../data/.var_check.txt");
+	varCheckFile.open("../conf/.var_check.txt");
 	
 	string inputString;
 	getline(varCheckFile, inputString); 	// dumps first line, column header
@@ -763,11 +784,11 @@ varPermutations setParams()
 		okVars.push_back(tempStruct);
 	}
 	
-	int colWidth = 14;
+	int colWidth = 11;
 	int numWidth = 4;
 	
 	cout << "Choose from the following parameters: \n";
-	cout << setw(colWidth) << "Var Name";
+	cout << setw(colWidth+8) << "Var Name";
 	cout << setw(colWidth) << "Min Value";
 	cout << setw(colWidth) << "Max Value";
 	cout << setw(colWidth) << "Default";
@@ -776,7 +797,7 @@ varPermutations setParams()
 	for(int i = 0; i < okVars.size(); i++)
 	{
 		cout << setw(numWidth - 2) << i + 1 << ": ";
-		cout << setw(colWidth - numWidth) << okVars[i].name;
+		cout << setw(colWidth - numWidth + 8) << okVars[i].name;
 		cout << setw(colWidth) << fixed << setprecision(2) << okVars[i].min;
 		cout << setw(colWidth) << fixed << setprecision(2) << okVars[i].max;
 		cout << setw(colWidth) << fixed << setprecision(2) << okVars[i].def; 
@@ -941,35 +962,39 @@ void makeFiles()
 			// Iterate through the variable strings saved for a given simulation set. Output strings to the file
 			for(int l = 0; l < batches[i].sim[j].variableString.size(); l++)
 			{
+				cout << " batch " << i << ", sim " << j << ", var string " << l;
 				simVarsFile << batches[i].sim[j].variableString[l] << endl;
 			}
 			
 		}
 	}
 	
-	// This section is functional. Creates full "root_shell.sh" file from string vectors
-	ofstream rootShell;
-	rootShell.open("root_shell.sh");
+	// This section is functional. Creates 
+	ofstream dirSetupFile;
+	ofstream runBatchFile;
+	dirSetupFile.open("directory-setup.sh");
+	runBatchFile.open("run-batches.sh");
 	
-	rootShell << "#!/bin/bash \n";
+	dirSetupFile << "#!/bin/bash \n";
+	runBatchFile << "#!/bin/bash \n";
 
 	for(int i = 0; i < root.mkdir.size(); i++)
 	{
-		rootShell << root.mkdir[i] << endl;
+		dirSetupFile << root.mkdir[i] << endl;
 	}
-	
 	for(int i = 0; i < root.chmod.size(); i++)
 	{
-		rootShell << root.chmod[i] << endl;
+		dirSetupFile << root.chmod[i] << endl;
 	}
+	dirSetupFile.close();
 	
 	for(int i = 0; i < root.sbatch.size(); i++)
 	{
-		rootShell << root.sbatch[i] << endl;
+		runBatchFile << root.sbatch[i] << endl;
 	}
 	
-	rootShell << "rm slurm* \n";
-	rootShell.close();
+	runBatchFile << "rm slurm* \n";
+	runBatchFile.close();
 }
 
 //---------------------------------------------------------------------------------------------------------------------------------//
@@ -1008,8 +1033,45 @@ void makeTestBatch()
 		// Initial batchIndex value is derived from current folder population. The first one used in the new batch is one increment up.
 		batchIndex++;
 		tempBatch.index = batchIndex;
+		tempBatch.queue = batches.size() + 1;
+		tempBatch = updateTimestamp(tempBatch);
 		
 		// add temporary batch to batch list. All batches will go in this stack
 		batches.push_back(tempBatch); 																
 	}	
 }
+
+void pressEnter()
+{
+	cout << "Press ENTER to continue.";
+	cin.ignore();
+	getchar();
+	cout << endl;	
+}
+
+bool confirm(string message, string error, string confirmStr, string cancelStr)
+{
+	string input;
+	bool boolAnswer;
+	
+	cout << message << " (" << confirmStr << " or " << cancelStr << ") ";
+	cin >> input;
+	
+	if (input == confirmStr)
+	{
+
+	}
+	else if (input == cancelStr)
+	{
+		
+	}
+
+	return boolAnswer;
+}
+
+int getValidInt(int min, int max, string message, string error)
+{
+	int validValue = 1;
+	return validValue;
+}
+

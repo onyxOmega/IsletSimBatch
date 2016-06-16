@@ -1,0 +1,6 @@
+var min max def units
+kPrime 0 10 1 none
+poPrime 0 1 1 none
+gCoupMean 0 .16 .12 nS
+gCoupMultiplier 0 1 1 none
+GkMultiplier 0 1 1 none
