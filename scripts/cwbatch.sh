@@ -1,11 +1,11 @@
 #!/bin/bash
 
-g++ -std=c++0x -I /home/boost_1_54_0/ -fopenmp ../source/batcher/batchMain.cpp -o ../exe/simBatcher.exe
+g++ -std=c++0x -I /home/boost_1_54_0/ -fopenmp ../source/batcher/batch-main.cpp -o ../exe/simBatcher.exe
 ../exe/simBatcher.exe
 
-chmod u+x ./directory-setup.sh
-chmod o+x ./directory-setup.sh
-chmod u+x ./run-batches.sh
-chmod o+x ./run-batches.sh
+chmod u+x ./setupDirectories.sh
+chmod o+x ./setupDirectories.sh
+chmod u+x ./runBatches.sh
+chmod o+x ./runBatches.sh
 
-~/IsletSimBatch/scripts/directory-setup.sh
+~/IsletSimBatch/scripts/setupDirectories.sh

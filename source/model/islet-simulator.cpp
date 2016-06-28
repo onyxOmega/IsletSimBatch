@@ -224,7 +224,7 @@ void IsletSimulatorClass::setInitialBetaCellVars()
 {
 	// populate initial beta cell parameters from external files
 	ifstream cellVarsFile (fileHandler.get_cellPropertiesFile());
-	ifstream RVFile(fileHandler.get_randomVarsFile());
+	// ifstream RVFile(fileHandler.get_randomVarsFile());
 	ifstream NNFile(fileHandler.get_nnFile());
 	
 	if (cellVarsFile.is_open() && NNFile.is_open())
@@ -335,7 +335,7 @@ void IsletSimulatorClass::setInitialBetaCellVars()
 		}
 		
 		cellVarsFile.close();
-		RVFile.close();
+		// RVFile.close();
 		NNFile.close();
 	}
 }
@@ -369,7 +369,7 @@ void IsletSimulatorClass::setUserDefinedVars()
 			cout << "  Percent open for Katp channels: " << islet.poPrime << endl;
 			userVariableBool = true;
 		}		
-		if(userVarMatrix[0][i] == "runTime")
+		if(userVarMatrix[0][i] == "simTime")
 		{
 			runTime = boost::lexical_cast<double>(userVarMatrix[1][i]);
 			cout << "  Simulation run time: " << runTime << endl;

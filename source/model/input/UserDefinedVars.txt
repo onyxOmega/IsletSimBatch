@@ -1,5 +1,0 @@
-runTime=800000;
-kPrime=1.0;
-poPrime=1.0;
-stepTime=0.16;
-GkMultiplier=0.;

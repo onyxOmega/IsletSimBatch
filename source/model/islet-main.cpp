@@ -32,7 +32,7 @@ int main( int argc , char* argv[] )
 		int sim = 0;
 		int rep = 0;
 		
-		getline(batchSS, toss, ':');
+		getline(batchSS, toss, ':');	
 		getline(batchSS, keep, ',');
 		convertSS << keep;
 		convertSS >> batch;
@@ -56,7 +56,7 @@ int main( int argc , char* argv[] )
 		fileHandler.constructPath(batch, sim, rep);
 	}
 	
-	fileHandler.ObjectiveOutputPurgeFiles();																					// Remove old versions of output files from working output directory
+	// fileHandler.ObjectiveOutputPurgeFiles();																					// Remove old versions of output files from working output directory
 	
 	int objectStartTime = time(NULL);																								// Start runtime clock
 	IsletSimulatorClass isletSimulator(fileHandler);																		// Create and construct new Islet Simulator object

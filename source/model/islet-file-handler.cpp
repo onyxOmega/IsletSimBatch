@@ -3,10 +3,61 @@
 #include <string>
 #include <ostream>
 #include <fstream>
+#include <iomanip>
+
+using namespace std;
 
 void IsletFileHandlerClass::constructPath(int batch, int sim, int rep)
 {
 	cout << "In path constructor \n";
+	stringstream 	inpathSS, outpathSS, timeOutSS, potentialOutSS, calciumOutSS, sodiumOutSS, potassiumOutSS, caerOutSS, 
+							atpOutSS, adpOutSS, IRPOutSS, PPOutSS, DPOutSS, FIPOutSS, RIPOutSS, capOutSS, noiseOutSS;
+	
+	inpathSS << "../input/Batch" <<  setfill('0') << setw(4) << batch << "_Sim" <<  setfill('0') << setw(4) << sim << "Vars.txt";
+	inpathSS >> inpath;
+	
+	outpathSS << "../data/SimBatch" <<  setfill('0') << setw(4) << batch <<  "/sim" << setfill('0') << setw(4) << sim;
+
+	if (rep > 0)
+	{
+		outpathSS << "/rep" << setfill('0') << setw(2) << rep;
+	}
+		
+	outpathSS >> outpath;
+	
+	timeOutSS << outpath << "/time.txt";
+	potentialOutSS << outpath << "/potential.txt";
+	calciumOutSS << outpath << "/calcium.txt";
+	sodiumOutSS << outpath << "/sodium.txt";
+	potassiumOutSS << outpath << "/potassium.txt";
+	caerOutSS << outpath << "/caer.txt";
+	atpOutSS << outpath << "/atp.txt";
+	adpOutSS << outpath << "/adp.txt";
+	IRPOutSS << outpath << "/IRP.txt";
+	PPOutSS << outpath << "/PP.txt";
+	DPOutSS << outpath << "/DP.txt";
+	FIPOutSS << outpath << "/FIP.txt";
+	RIPOutSS << outpath << "/RIP.txt";
+	capOutSS << outpath << "/cap.txt";
+	noiseOutSS << outpath << "/noise.txt";
+	
+	timeOutSS >> timeOut;
+	potentialOutSS >> potentialOut; 
+	calciumOutSS >> calciumOut; 
+	sodiumOutSS  >> sodiumOut; 
+	potassiumOutSS  >> potassiumOut; 
+	caerOutSS >> caerOut;
+	atpOutSS >> atpOut;
+	adpOutSS >> adpOut;
+	IRPOutSS >> IRPOut;
+	PPOutSS >> PPOut;
+	DPOutSS >> DPOut;
+	FIPOutSS >> FIPOut;
+	RIPOutSS >> RIPOut;
+	capOutSS >> capOut;
+	noiseOutSS >> noiseOut;
+		
+	set_userVarsFile(inpath);
 }
 
 string IsletFileHandlerClass::get_userVarsFile()
@@ -29,11 +80,6 @@ char const* IsletFileHandlerClass::get_nnFile()
 	return nnFile;
 }
 
-char const* IsletFileHandlerClass::get_randomVarsFile()
-{
-	return randomVarsFile;
-}
-
 void IsletFileHandlerClass::set_userVarsFile(string varInputFileName)
 {
 	ifstream testFile(varInputFileName);
@@ -50,81 +96,81 @@ void IsletFileHandlerClass::set_userVarsFile(string varInputFileName)
 void IsletFileHandlerClass::ObjectiveOutputPurgeFiles()
 {
 	cout << "Purging old output files from working output directory..." << endl;
-	if (remove(obj_potentialOutput)) perror(obj_potentialOutput);
-	if (remove(obj_calciumOutput)) perror(obj_calciumOutput);
-	if (remove(obj_sodiumOutput)) perror(obj_sodiumOutput);
-	if (remove(obj_potassiumOutput)) perror(obj_potassiumOutput);
-	if (remove(obj_caerOutput)) perror(obj_caerOutput);
-	if (remove(obj_atpOutput)) perror(obj_atpOutput);
-	if (remove(obj_adpOutput)) perror(obj_adpOutput);
-	if (remove(obj_PPOutput)) perror(obj_PPOutput);
-	if (remove(obj_IRPOutput)) perror(obj_IRPOutput);
-	if (remove(obj_DPOutput)) perror(obj_DPOutput);
-	if (remove(obj_FIPOutput)) perror(obj_FIPOutput);
-	if (remove(obj_RIPOutput)) perror(obj_RIPOutput);
-	if (remove(obj_capOutput)) perror(obj_capOutput);
-	if (remove(obj_noiseOutput)) perror(obj_noiseOutput);
+	if (remove(potentialOut.c_str())) perror(potentialOut.c_str());
+	if (remove(calciumOut.c_str())) perror(calciumOut.c_str());
+	if (remove(sodiumOut.c_str())) perror(sodiumOut.c_str());
+	if (remove(potassiumOut.c_str())) perror(potassiumOut.c_str());
+	if (remove(caerOut.c_str())) perror(caerOut.c_str());
+	if (remove(atpOut.c_str())) perror(atpOut.c_str());
+	if (remove(adpOut.c_str())) perror(adpOut.c_str());
+	if (remove(PPOut.c_str())) perror(PPOut.c_str());
+	if (remove(IRPOut.c_str())) perror(IRPOut.c_str());
+	if (remove(DPOut.c_str())) perror(DPOut.c_str());
+	if (remove(FIPOut.c_str())) perror(FIPOut.c_str());
+	if (remove(RIPOut.c_str())) perror(RIPOut.c_str());
+	if (remove(capOut.c_str())) perror(capOut.c_str());
+	if (remove(noiseOut.c_str())) perror(noiseOut.c_str());
 	cout << "Purge complete." << endl;
 }
 
 void IsletFileHandlerClass::ObjectiveOutputDataBlock(stringstream * dataOutputStream)
 {
-	ofstream obj_outfilePotential;
-	ofstream obj_outfileCalcium;
-	ofstream obj_outfileSodium;
-	ofstream obj_outfilePotassium;
-	ofstream obj_outfileCaer;
-	ofstream obj_outfileATP;
-	ofstream obj_outfileADP;
-	ofstream obj_outfileIRP;
-	ofstream obj_outfilePP;
-	ofstream obj_outfileDP;
-	ofstream obj_outfileFIP;
-	ofstream obj_outfileRIP;
-	ofstream obj_outfileCap;
-	ofstream obj_outfileNoise;
+	ofstream outfilePotential;
+	ofstream outfileCalcium;
+	ofstream outfileSodium;
+	ofstream outfilePotassium;
+	ofstream outfileCaer;
+	ofstream outfileATP;
+	ofstream outfileADP;
+	ofstream outfileIRP;
+	ofstream outfilePP;
+	ofstream outfileDP;
+	ofstream outfileFIP;
+	ofstream outfileRIP;
+	ofstream outfileCap;
+	ofstream outfileNoise;
 	
-	obj_outfilePotential.open(obj_potentialOutput,ios::app);
-	obj_outfileCalcium.open(obj_calciumOutput,ios::app);
-	obj_outfileSodium.open(obj_sodiumOutput,ios::app);
-	obj_outfilePotassium.open(obj_potassiumOutput,ios::app);
-	obj_outfileCaer.open(obj_caerOutput,ios::app);
-	obj_outfileATP.open(obj_atpOutput,ios::app);
-	obj_outfileADP.open(obj_adpOutput,ios::app);
-	obj_outfileIRP.open(obj_IRPOutput,ios::app);
-	obj_outfilePP.open(obj_PPOutput,ios::app);
-	obj_outfileDP.open(obj_DPOutput,ios::app);
-	obj_outfileFIP.open(obj_FIPOutput,ios::app);
-	obj_outfileRIP.open(obj_RIPOutput,ios::app);
-	obj_outfileCap.open(obj_capOutput,ios::app);
-	obj_outfileNoise.open(obj_noiseOutput,ios::app);	
+	outfilePotential.open(potentialOut.c_str(),ios::app);
+	outfileCalcium.open(calciumOut.c_str(),ios::app);
+	outfileSodium.open(sodiumOut.c_str(),ios::app);
+	outfilePotassium.open(potassiumOut.c_str(),ios::app);
+	outfileCaer.open(caerOut.c_str(),ios::app);
+	outfileATP.open(atpOut.c_str(),ios::app);
+	outfileADP.open(adpOut.c_str(),ios::app);
+	outfileIRP.open(IRPOut.c_str(),ios::app);
+	outfilePP.open(PPOut.c_str(),ios::app);
+	outfileDP.open(DPOut.c_str(),ios::app);
+	outfileFIP.open(FIPOut.c_str(),ios::app);
+	outfileRIP.open(RIPOut.c_str(),ios::app);
+	outfileCap.open(capOut.c_str(),ios::app);
+	outfileNoise.open(noiseOut.c_str(),ios::app);	
 	
-	obj_outfilePotential <<  dataOutputStream[0].str();
-	obj_outfileSodium <<  dataOutputStream[1].str();
-	obj_outfilePotassium <<  dataOutputStream[2].str();
-	obj_outfileCalcium <<  dataOutputStream[3].str();
-	obj_outfileCaer <<  dataOutputStream[4].str();
-	obj_outfileATP <<  dataOutputStream[5].str();
-	obj_outfileADP <<  dataOutputStream[7].str();
-	obj_outfilePP <<  dataOutputStream[8].str();
-	obj_outfileDP <<  dataOutputStream[9].str();
-	obj_outfileFIP <<  dataOutputStream[10].str();
-	obj_outfileRIP <<  dataOutputStream[11].str();
-	obj_outfileCap <<  dataOutputStream[12].str();
-	obj_outfileNoise <<  dataOutputStream[13].str();
+	outfilePotential <<  dataOutputStream[0].str();
+	outfileSodium <<  dataOutputStream[1].str();
+	outfilePotassium <<  dataOutputStream[2].str();
+	outfileCalcium <<  dataOutputStream[3].str();
+	outfileCaer <<  dataOutputStream[4].str();
+	outfileATP <<  dataOutputStream[5].str();
+	outfileADP <<  dataOutputStream[7].str();
+	outfilePP <<  dataOutputStream[8].str();
+	outfileDP <<  dataOutputStream[9].str();
+	outfileFIP <<  dataOutputStream[10].str();
+	outfileRIP <<  dataOutputStream[11].str();
+	outfileCap <<  dataOutputStream[12].str();
+	outfileNoise <<  dataOutputStream[13].str();
 	
-	obj_outfilePotential.close();
-	obj_outfileATP.close();
-	obj_outfileADP.close();
-	obj_outfileCalcium.close();
-	obj_outfileSodium.close();
-	obj_outfilePotassium.close();
-	obj_outfileCaer.close();
-	obj_outfileIRP.close();
-	obj_outfilePP.close();
-	obj_outfileDP.close();
-	obj_outfileFIP.close();
-	obj_outfileRIP.close();
-	obj_outfileCap.close();
-	obj_outfileNoise.close();
+	outfilePotential.close();
+	outfileATP.close();
+	outfileADP.close();
+	outfileCalcium.close();
+	outfileSodium.close();
+	outfilePotassium.close();
+	outfileCaer.close();
+	outfileIRP.close();
+	outfilePP.close();
+	outfileDP.close();
+	outfileFIP.close();
+	outfileRIP.close();
+	outfileCap.close();
+	outfileNoise.close();
 }

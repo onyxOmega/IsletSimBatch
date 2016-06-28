@@ -101,8 +101,6 @@ void updateConfig();
 void pressEnter();
 bool confirm(string, string, string, string);
 int getValidInt(int, int, string, string);
-																			
-
 
 //---------------------------------------------------------------------------------------------------------------------------------//
 // Set globals
@@ -110,7 +108,6 @@ vector<batchData> batches;
 vector<int> place;
 int batchIndex;
 int tempCount;
-
 
 //-----------------------------------------------------------Main funtion----------------------------------------------------------//
 int main( int argc , char* argv[] )
@@ -511,17 +508,15 @@ batchData setupSims(batchData currentBatch)
 		
 		}	
 		// Add simTime, stepTime, etc, for a single sim
-		stringstream simSS;
-		string simString;
-		simSS << "stepTime=" << currentBatch.stepTime << ";";
-		simSS >> simString;
-		newSim.variableString.push_back(simString);
+		stringstream stepTimeSS, simTimeSS;
+		string stepTimeString, simTimeString;
+		stepTimeSS << "stepTime=" << currentBatch.stepTime << ";";
+		stepTimeSS >> stepTimeString;
+		newSim.variableString.push_back(stepTimeString);
 		
-		simSS.str("");
-		simString = "";
-		simSS << "simTime=" << currentBatch.simTime << ";";
-		simSS >> simString;
-		newSim.variableString.push_back(simString);
+		simTimeSS << "simTime=" << currentBatch.simTime << ";";
+		simTimeSS >> simTimeString;
+		newSim.variableString.push_back(simTimeString);
 		
 		// Adds the list of variables for each unique simulation to the batch's sim vector
 		currentBatch.sim.push_back(newSim);
@@ -886,7 +881,7 @@ void makeFiles()
 	for(int i = 0; i < batches.size(); i++)										
 	{
 		stringstream mkdirSS;
-		mkdirSS << "mkdir ~/IsletSimBatch/data/SimBatch" << setfill('0') << setw(4) << batches[i].index;
+		mkdirSS << "mkdir ../data/SimBatch" << setfill('0') << setw(4) << batches[i].index;
 		root.mkdir.push_back(mkdirSS.str());
 		
 		// Iterate through sims in a batch
@@ -894,7 +889,7 @@ void makeFiles()
 		{	
 			// Create a parent directory for a given simulation set.
 			mkdirSS.str("");
-			mkdirSS << "mkdir ~/IsletSimBatch/data/SimBatch" << setfill('0') << setw(4) << batches[i].index << "/sim" << setfill('0') << setw(4) << j+1;
+			mkdirSS << "mkdir ../data/SimBatch" << setfill('0') << setw(4) << batches[i].index << "/sim" << setfill('0') << setw(4) << j+1;
 			root.mkdir.push_back(mkdirSS.str());
 			string repTag = "";
 			
@@ -927,7 +922,7 @@ void makeFiles()
 				if (batches[i].repetitions > 1)										
 				{
 					mkdirSS.str("");
-					mkdirSS << "mkdir ~/IsletSimBatch/data/SimBatch" << setfill('0') << setw(4) << batches[i].index << "/sim" << setfill('0') << setw(4) << j+1 << "/rep" << setfill('0') << setw(2) << k+1;
+					mkdirSS << "mkdir ../data/SimBatch" << setfill('0') << setw(4) << batches[i].index << "/sim" << setfill('0') << setw(4) << j+1 << "/rep" << setfill('0') << setw(2) << k+1;
 					root.mkdir.push_back(mkdirSS.str());
 					
 					slurmFile << "#SBATCH --output=../data/SimBatch" << setfill('0') << setw(4) << batches[i].index << "/sim" << setfill('0') << setw(4) << j+1 << "/slurmRep" << setfill('0') << setw(2) << k+1 <<".out \n";
@@ -935,7 +930,7 @@ void makeFiles()
 					slurmFile << "#Execute \n\n";
 					
 					// This line sets runtime parameters for the simulator.exe file. Batch#, Sim #, and Rep# are used by the simulator to build the strings for where data is coming from and going to.
-					slurmFile << "~/IsletSimBatch/exe/simulator.exe Batch:" << batches[i].index << " Sim:" << j+1 << " Rep:" << k+1;  
+					slurmFile << "../exe/janSim.exe Batch:" << batches[i].index << ",Sim:" << j+1 << ",Rep:" << k+1;  
 				}
 				else
 				{
@@ -943,7 +938,7 @@ void makeFiles()
 					slurmFile << "cd $PBS_O_WORKDIR \n\n";
 					slurmFile << "#Execute \n\n";
 					// This line sets the runtime parameters if there are no repetitions set. In this case, the data is output to the same directory as the inputVarialbes.txt file
-					slurmFile << "~/IsletSimBatch/exe/simulator.exe Batch:" <<batches[i].index << " Sim:" << j+1;  
+					slurmFile << "../exe/janSim.exe Batch:" <<batches[i].index << ",Sim:" << j+1 << ",Rep:0";  
 				}
 				slurmFile.close();
 				
@@ -953,6 +948,7 @@ void makeFiles()
 			}
 			
 			// Create simulationVars.txt file with the custum parameters for the simulation set.
+			// Note, these aren't placed in the appropriate directories, because the directories don't exist yet at this point in the batching process.
 			stringstream simVarsSS;
 			simVarsSS << "../input/Batch" << setfill('0') << setw(4) <<batches[i].index << "_Sim" << setfill('0') << setw(4) <<  j+1 << "Vars.txt";
 			
@@ -972,8 +968,8 @@ void makeFiles()
 	// This section is functional. Creates 
 	ofstream dirSetupFile;
 	ofstream runBatchFile;
-	dirSetupFile.open("directory-setup.sh");
-	runBatchFile.open("run-batches.sh");
+	dirSetupFile.open("setupDirectories.sh");
+	runBatchFile.open("runBatches.sh");
 	
 	dirSetupFile << "#!/bin/bash \n";
 	runBatchFile << "#!/bin/bash \n";
