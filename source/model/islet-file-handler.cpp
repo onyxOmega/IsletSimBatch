@@ -11,7 +11,7 @@ void IsletFileHandlerClass::constructPath(int batch, int sim, int rep)
 {
 
 	stringstream 	inpathSS, outpathSS, timeOutSS, potentialOutSS, calciumOutSS, sodiumOutSS, potassiumOutSS, caerOutSS, 
-							atpOutSS, adpOutSS, IRPOutSS, PPOutSS, DPOutSS, FIPOutSS, RIPOutSS, capOutSS, noiseOutSS, infoSS;
+							atpOutSS, adpOutSS, IRPOutSS, PPOutSS, DPOutSS, FIPOutSS, RIPOutSS, capOutSS, noiseOutSS, simFinalOutSS, infoOutSS;
 	
 	inpathSS << "../input/Batch" <<  setfill('0') << setw(4) << batch << "_Sim" <<  setfill('0') << setw(4) << sim << "Vars.txt";
 	inpathSS >> inpath;
@@ -40,7 +40,9 @@ void IsletFileHandlerClass::constructPath(int batch, int sim, int rep)
 	RIPOutSS << outpath << "/RIP.txt";
 	capOutSS << outpath << "/cap.txt";
 	noiseOutSS << outpath << "/noise.txt";
-	infoSS << outpath << "/info.txt";
+	infoOutSS << outpath << "/info.txt";
+	
+	simFinalOutSS << "../data/SimBatch" << setfill('0') << setw(4) << batch << "/Sim" << setfill('0') << setw(4) << sim << "Data.txt";
 	
 	timeOutSS >> timeOut;
 	potentialOutSS >> potentialOut; 
@@ -57,25 +59,16 @@ void IsletFileHandlerClass::constructPath(int batch, int sim, int rep)
 	RIPOutSS >> RIPOut;
 	capOutSS >> capOut;
 	noiseOutSS >> noiseOut;
-	infoSS >> infoOut;
+	infoOutSS >> infoOut;
+	simFinalOutSS >> simFinalOut;
 	
 	set_userVarsFile(inpath);
 }
 
 void IsletFileHandlerClass::updateStatus(double pComplete)
 {
-	ofsream infoFile(infoOut);
+	ofstream infoFile(infoOut);
 	infoFile << pComplete * 100 << "% complete." << endl;
-}
-
-void IsletFileHandlerClass::finishedStatus()
-{
-	
-}
-
-string IsletFileHandlerClass::get_userVarsFile()
-{
-	return userVarsFile;
 }
 
 char const* IsletFileHandlerClass::get_cellPropertiesFile()
@@ -91,6 +84,11 @@ char const* IsletFileHandlerClass::get_cellPositionFile()
 char const* IsletFileHandlerClass::get_nnFile()
 {
 	return nnFile;
+}
+
+string IsletFileHandlerClass::get_userVarsFile()
+{
+	return userVarsFile;
 }
 
 void IsletFileHandlerClass::set_userVarsFile(string varInputFileName)
@@ -123,6 +121,7 @@ void IsletFileHandlerClass::ObjectiveOutputPurgeFiles()
 	if (remove(RIPOut.c_str())) perror(RIPOut.c_str());
 	if (remove(capOut.c_str())) perror(capOut.c_str());
 	if (remove(noiseOut.c_str())) perror(noiseOut.c_str());
+	if (remove(simFinalOut.c_str())) perror(simFinalOut.c_str());
 	cout << "Purge complete." << endl;
 }
 
@@ -187,3 +186,11 @@ void IsletFileHandlerClass::ObjectiveOutputDataBlock(stringstream * dataOutputSt
 	outfileCap.close();
 	outfileNoise.close();
 }
+
+void IsletFileHandlerClass::finalOutput(SimDataStructure simData)
+{
+	ofstream outfileInsulin;
+	outfileInsulin.open(simFinalOut.c_str(),ios::app);
+	outfileInsulin << "Net insulin secretion: " << simData.insulin << endl;
+}
+	

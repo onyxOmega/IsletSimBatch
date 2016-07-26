@@ -22,6 +22,7 @@ struct IsletStructure
 		step. -WLF
 	*/
 	
+	double netInsulin;
 	double ktt;
 	double kdd;
 	double ktd;
@@ -179,6 +180,12 @@ struct BetaCellStructure
 	
 	// Other
 	double IKATPvec;
+};
+
+struct SimDataStructure
+{
+	string timeStamp, runTime;
+	double insulin;
 };
 
 #endif

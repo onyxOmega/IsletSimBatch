@@ -414,8 +414,9 @@ batchData queueBatch(batchData newBatch)
 					int selectionInt;
 					
 					cout << "Select settings for randomizing beta cell parameters: \n";
-					cout << " 1. Use current time stamp as pseudorandom seed (use this to run a simulation set with different parameters.\n"; 
-					cout << " 2. Use default random seed (to standardize parameters across multiple batches).";
+					cout << " 1. Use current time stamp as pseudorandom seed \n";
+					cout << "    (use this to run a simulation set with a unique parameter set).\n"; 
+					cout << " 2. Use default random seed (to standardize parameters across multiple batches).\n";
 					cout << " 3. Manually enter random seed (select this to match previous sims) " << defaultSimTime << " ms.\n";
 					cout << " 4. Cancel and return.\n\n";
 					cout << "Enter Selection: ";

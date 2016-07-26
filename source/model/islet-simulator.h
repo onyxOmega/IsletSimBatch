@@ -15,8 +15,6 @@
 #ifndef ISLETSIMULATOR_H
 #define ISLETSIMULATOR_H
 
-
-
 #include "islet-file-handler.h"
 #include "islet-data-structures.h"
 
@@ -31,6 +29,8 @@ class IsletSimulatorClass
 {
 	private:
 		IsletFileHandlerClass fileHandler;
+		SimDataStructure simData;
+
 		
 		string userVarMatrix[2][10];					// User defined variable matrix
 		
@@ -69,8 +69,9 @@ class IsletSimulatorClass
 		void setDefaultVars();
 		void setInitialBetaCellVars();
 		void setUserDefinedVars();
-		void simulationLoop();
-		void setNearestNeighbors();
+		void setNearestNeighbors();		
+		
+		SimDataStructure simulationLoop();
 };
 
 #endif

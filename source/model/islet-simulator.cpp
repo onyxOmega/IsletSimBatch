@@ -4,6 +4,7 @@
 
 #include "islet-simulator.h"
 #include "islet-file-handler.h"
+#include "islet-data-structures.h"
 
 #include <iostream>
 #include <string>
@@ -36,13 +37,7 @@
 using namespace std;
 
 IsletSimulatorClass::IsletSimulatorClass(IsletFileHandlerClass tempHandler)
-{	
-	/* The following is a general implementation for pulling in a series 
-		of user defined variable values from an input file. Not yet 
-		implemented for variable assignment. So it doesn't do anything
-		useful yet. - WLF
- 	*/
-	
+{		
 	fileHandler = tempHandler;
 		
 	if (fileHandler.get_userVarsFile()!= "")
@@ -85,6 +80,7 @@ void IsletSimulatorClass::setDefaultVars()
 	Glucose = 11.0;
 		
 	// Islet variables:
+	islet.netInsulin = 0;
 	islet.ktt = 0.05;
 	islet.kdd = 0.01;
 	islet.ktd = 0.026;
@@ -415,9 +411,9 @@ void IsletSimulatorClass::setUserDefinedVars()
 }
 
 
-void IsletSimulatorClass::simulationLoop()
+SimDataStructure IsletSimulatorClass::simulationLoop()
 {
-	cout << "Beginning simulation." << endl << "Time: "<< endl;
+	cout << "Beginning simulation...\n";
 	for(double t = 0; t <= (runTime + stepTime/2); t = t + stepTime)
 	{	// Loop the simulation through each time step
 			
@@ -457,9 +453,11 @@ void IsletSimulatorClass::simulationLoop()
 			double& RES = cell.x[25];
 			double& FIP = cell.x[26];
 			double& RIP = cell.x[27];
-			double& Pns = cell.x[29];					// no intermediate calculations were needed for the x[28] variable, 
+			double& Pns = cell.x[29];				// no intermediate calculations were needed for the x[28] variable, 
 																		// so no reference was set
 
+			islet.netInsulin += RIP;
+																		
 			/* Perform intermediate calculations between previous time step and next
 				This takes the current data set, which is transferred into BetaCellStructure variables from
 				the cell.x[] array (seen above) and makes intermediate calculations which feed into the 
@@ -722,7 +720,7 @@ void IsletSimulatorClass::simulationLoop()
 			
 			double percentComp = t / runTime;
 			
-			fileHandler.updateStatus(percentComp, );
+			fileHandler.updateStatus(percentComp);
 			
 			for(int cellIndex = 0; cellIndex < cellNumber; cellIndex++)
 			{
@@ -739,7 +737,7 @@ void IsletSimulatorClass::simulationLoop()
 				dataOutputStream[8] << cell.x[23] << " ";
 				dataOutputStream[9] << cell.x[24] << " ";
 				dataOutputStream[10] << cell.x[26] << " ";
-				dataOutputStream[11] << cell.x[27] << " ";
+				dataOutputStream[11] << cell.x[27] << " ";			//RIP
 				dataOutputStream[12] << cell.x[28] << " ";
 				dataOutputStream[13] << cell.x[29] << " ";
 			}	
@@ -761,8 +759,10 @@ void IsletSimulatorClass::simulationLoop()
 			}
 		}
 	}
-	
 	// Sends a final block of data of everything originated since the last clear
 	fileHandler.ObjectiveOutputDataBlock(dataOutputStream);
+	
+	simData.insulin = islet.netInsulin;
+	return simData;
 }
 

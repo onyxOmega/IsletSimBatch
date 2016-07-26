@@ -2,9 +2,9 @@
 		
 		Author: William Fischer
 */
-
 #include "islet-file-handler.h"
 #include "islet-simulator.h"
+#include "islet-data-structures.h"
 #include <iostream>
 #include <stdio.h>
 #include <time.h>
@@ -15,6 +15,7 @@ using namespace std;
 int main( int argc , char* argv[] )
 {
 	IsletFileHandlerClass fileHandler;																								// Create new File Handler object
+	SimDataStructure simData;
 	
 	// Run validation and initial input processing
 	if (argc < 1) 
@@ -60,9 +61,9 @@ int main( int argc , char* argv[] )
 	
 	int objectStartTime = time(NULL);																								// Start runtime clock
 	IsletSimulatorClass isletSimulator(fileHandler);																		// Create and construct new Islet Simulator object
-	isletSimulator.simulationLoop();																									// Run the simulation loop
+	simData = isletSimulator.simulationLoop();																									// Run the simulation loop
 	int objectRunTime = time(NULL) - objectStartTime;																	// Stop runtime clock
-	cout << "New version's total run time " << objectRunTime << " seconds." << endl;
+	
 	
 	return 0;
 }
