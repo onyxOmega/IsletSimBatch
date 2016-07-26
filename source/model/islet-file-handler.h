@@ -22,7 +22,7 @@ class IsletFileHandlerClass
 {
 	private:		
 		string	inpath, outpath,  timeOut, potentialOut, calciumOut, sodiumOut, potassiumOut, caerOut, 
-					atpOut, adpOut, IRPOut, PPOut, DPOut, FIPOut, RIPOut, capOut, noiseOut;
+					atpOut, adpOut, IRPOut, PPOut, DPOut, FIPOut, RIPOut, capOut, noiseOut, infoOut;
 	
 		string userVarsFile;
 		char const* cellPropertiesFile = "../input/islet/vars5exo.txt";
@@ -36,6 +36,8 @@ class IsletFileHandlerClass
 		void ObjectiveOutputPurgeFiles();
 		void ObjectiveOutputDataBlock(stringstream*);
 		void set_userVarsFile(string);
+		void updateStatus(double);
+		void finishedStatus
 		
 		string get_userVarsFile();
 		char const* get_cellPropertiesFile();

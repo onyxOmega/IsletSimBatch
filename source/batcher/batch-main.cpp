@@ -52,6 +52,7 @@ struct batchData
 	int repetitions, simCount;
 	double stepTime;
 	int simTime;
+	int randSeed;
 	timeStamp wallTime, totalWallTime;
 	vector<simData> sim;
 	
@@ -80,6 +81,7 @@ struct allowedVariables
 int const SIM_RATE = 1400; 																			 
 int const defaultSimTime = 200000;
 double const defaultStepTime = .16;
+int defaultRandSeed = 1467908547;
 
 //---------------------------------------------------------------------------------------------------------------------------------//
 // Declare custom functions
@@ -174,6 +176,7 @@ batchData queueBatch(batchData newBatch)
 		newBatch.index = batchIndex;		
 		newBatch.simTime = defaultSimTime;
 		newBatch.stepTime = defaultStepTime;
+		newBatch.randSeed = defaultRandSeed;
 		newBatch.repetitions = 1;
 		int totalSims = 1;
 	}
@@ -403,7 +406,82 @@ batchData queueBatch(batchData newBatch)
 			}
 			else if (selectionInt == 4)
 			{
-				cout << "'Change randomization settings' is not set up yet. \n";
+				bool valid = false;
+				while (!valid)
+					{
+					string selectionString;
+					stringstream selectionSS;
+					int selectionInt;
+					
+					cout << "Select settings for randomizing beta cell parameters: \n";
+					cout << " 1. Use current time stamp as pseudorandom seed (use this to run a simulation set with different parameters.\n"; 
+					cout << " 2. Use default random seed (to standardize parameters across multiple batches).";
+					cout << " 3. Manually enter random seed (select this to match previous sims) " << defaultSimTime << " ms.\n";
+					cout << " 4. Cancel and return.\n\n";
+					cout << "Enter Selection: ";
+					
+					cin >> selectionString;
+					cout << endl;
+					selectionSS << selectionString;
+					selectionSS >> selectionInt;
+					if (selectionSS.fail())
+					{
+						cout << "Invalid selection.\n\n";
+					}
+					else
+					{
+						// Set and validate parameters for new simulation batch.
+						if (selectionInt == 1)
+						{
+							newBatch.randSeed = time(NULL);
+							valid = true;
+						}
+						else if (selectionInt == 2)
+						{
+							newBatch.randSeed = defaultRandSeed;
+							valid = true;
+						}
+						else if (selectionInt == 3)
+						{
+							string randString;
+							stringstream randSS;
+							cout << "Enter random seed (integer value):";
+							cin >> randString;
+							randSS << randString;
+							randSS >> newBatch.randSeed;
+							if (randSS.fail())
+							{
+								cout << "Invalid entry.\n\n";
+								pressEnter();
+							}
+							else
+							{
+								valid = true;
+							}
+						}
+						else if (selectionInt == 4)
+						{
+							valid = true;
+						}
+						else
+						{
+							cout << "Invalid selection. \n\n";
+						}
+						if (valid)
+						{
+							cout << "Using random seed: " << newBatch.randSeed;
+							if (newBatch.randSeed == defaultRandSeed)
+							{
+								cout << " (default)" << endl;
+							}
+							else
+							{
+								cout << endl;
+							}
+							pressEnter();
+						}
+					}
+				}
 			}
 			
 			else if (selectionInt == 5)
@@ -507,9 +585,10 @@ batchData setupSims(batchData currentBatch)
 			
 		
 		}	
-		// Add simTime, stepTime, etc, for a single sim
-		stringstream stepTimeSS, simTimeSS;
-		string stepTimeString, simTimeString;
+		
+		// Add simTime, stepTime, randSeed etc, for a single sim
+		stringstream stepTimeSS, simTimeSS, randSeedSS;
+		string stepTimeString, simTimeString, randSeedString;
 		stepTimeSS << "stepTime=" << currentBatch.stepTime << ";";
 		stepTimeSS >> stepTimeString;
 		newSim.variableString.push_back(stepTimeString);
@@ -517,6 +596,11 @@ batchData setupSims(batchData currentBatch)
 		simTimeSS << "simTime=" << currentBatch.simTime << ";";
 		simTimeSS >> simTimeString;
 		newSim.variableString.push_back(simTimeString);
+		
+		randSeedSS << "randSeed=" << currentBatch.randSeed << ";";
+		randSeedSS >> randSeedString;
+		newSim.variableString.push_back(randSeedString);
+		
 		
 		// Adds the list of variables for each unique simulation to the batch's sim vector
 		currentBatch.sim.push_back(newSim);
@@ -644,6 +728,7 @@ void displayBatchData(batchData currentBatch)
 	cout << "  Valid batch: " << boolalpha << currentBatch.valid << endl;
 	cout << "  Simulation time: " << currentBatch.simTime << endl;
 	cout << "  Step time: " << currentBatch.stepTime << endl;
+	cout << "  Randomization seed: " << currentBatch.randSeed << endl;
 	cout << "  Number of unique simulations: " <<  currentBatch.sim.size() << endl;
 	cout << "  Number of repetitions of each simulation: " << currentBatch.repetitions << endl;
 	cout << "  Total number of simulations: " << currentBatch.simCount << endl;
@@ -958,7 +1043,6 @@ void makeFiles()
 			// Iterate through the variable strings saved for a given simulation set. Output strings to the file
 			for(int l = 0; l < batches[i].sim[j].variableString.size(); l++)
 			{
-				cout << " batch " << i << ", sim " << j << ", var string " << l;
 				simVarsFile << batches[i].sim[j].variableString[l] << endl;
 			}
 			

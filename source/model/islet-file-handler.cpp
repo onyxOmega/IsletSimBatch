@@ -9,9 +9,9 @@ using namespace std;
 
 void IsletFileHandlerClass::constructPath(int batch, int sim, int rep)
 {
-	cout << "In path constructor \n";
+
 	stringstream 	inpathSS, outpathSS, timeOutSS, potentialOutSS, calciumOutSS, sodiumOutSS, potassiumOutSS, caerOutSS, 
-							atpOutSS, adpOutSS, IRPOutSS, PPOutSS, DPOutSS, FIPOutSS, RIPOutSS, capOutSS, noiseOutSS;
+							atpOutSS, adpOutSS, IRPOutSS, PPOutSS, DPOutSS, FIPOutSS, RIPOutSS, capOutSS, noiseOutSS, infoSS;
 	
 	inpathSS << "../input/Batch" <<  setfill('0') << setw(4) << batch << "_Sim" <<  setfill('0') << setw(4) << sim << "Vars.txt";
 	inpathSS >> inpath;
@@ -40,11 +40,12 @@ void IsletFileHandlerClass::constructPath(int batch, int sim, int rep)
 	RIPOutSS << outpath << "/RIP.txt";
 	capOutSS << outpath << "/cap.txt";
 	noiseOutSS << outpath << "/noise.txt";
+	infoSS << outpath << "/info.txt";
 	
 	timeOutSS >> timeOut;
 	potentialOutSS >> potentialOut; 
 	calciumOutSS >> calciumOut; 
-	sodiumOutSS  >> sodiumOut; 
+	sodiumOutSS  >> sodiumOut;
 	potassiumOutSS  >> potassiumOut; 
 	caerOutSS >> caerOut;
 	atpOutSS >> atpOut;
@@ -56,8 +57,20 @@ void IsletFileHandlerClass::constructPath(int batch, int sim, int rep)
 	RIPOutSS >> RIPOut;
 	capOutSS >> capOut;
 	noiseOutSS >> noiseOut;
-		
+	infoSS >> infoOut;
+	
 	set_userVarsFile(inpath);
+}
+
+void IsletFileHandlerClass::updateStatus(double pComplete)
+{
+	ofsream infoFile(infoOut);
+	infoFile << pComplete * 100 << "% complete." << endl;
+}
+
+void IsletFileHandlerClass::finishedStatus()
+{
+	
 }
 
 string IsletFileHandlerClass::get_userVarsFile()

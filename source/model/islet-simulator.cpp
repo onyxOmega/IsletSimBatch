@@ -78,7 +78,7 @@ IsletSimulatorClass::IsletSimulatorClass(IsletFileHandlerClass tempHandler)
 void IsletSimulatorClass::setDefaultVars()
 {	
 	// simulation vars:
-	seed = time(NULL);
+	randSeed = 1467908547;			// Default seed used in batch program
 	cellNumber = 1000;
 	runTime = 500.0;
 	stepTime = 0.18;
@@ -233,7 +233,7 @@ void IsletSimulatorClass::setInitialBetaCellVars()
 		double cSum = 0;
 		
 		// Create random distributions for randomizing variable parameters
-		boost::mt19937 gen(seed);
+		boost::mt19937 gen(randSeed);
 		boost::random::uniform_real_distribution<> dis(0.25, 1.5);
 		boost::normal_distribution<> gKATPv(2.31, .23);
 		boost::gamma_distribution<> gCoupS(4,4);
@@ -393,10 +393,10 @@ void IsletSimulatorClass::setUserDefinedVars()
 			cout << "  Coupling conductance multiplier: " << islet.gCoupMultiplier << endl;
 			userVariableBool = true;
 		}
-		if(userVarMatrix[0][i] == "seed")
+		if(userVarMatrix[0][i] == "randSeed")
 		{
-			seed = boost::lexical_cast<double>(userVarMatrix[1][i]);
-			cout << "  Fixed randomization seed: " << seed << endl;
+			randSeed = boost::lexical_cast<int>(userVarMatrix[1][i]);
+			cout << "  Fixed randomization seed: " << randSeed << endl;
 			userVariableBool = true;
 		}
 		
@@ -720,7 +720,9 @@ void IsletSimulatorClass::simulationLoop()
 		{	// At given intervals, write the current data set to an output buffer.
 			// Send buffer data to output files periodically.
 			
-			cout << "  " << t << " ms" << endl;							// output the current simulation time
+			double percentComp = t / runTime;
+			
+			fileHandler.updateStatus(percentComp, );
 			
 			for(int cellIndex = 0; cellIndex < cellNumber; cellIndex++)
 			{
